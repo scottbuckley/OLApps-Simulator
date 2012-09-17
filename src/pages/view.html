@@ -6,21 +6,35 @@
 		{{ app_init_js }}
 		<script src="{{ media('js/ace/ace.js') }}" type="text/javascript" charset="utf-8"></script>
 		<link rel="stylesheet" type="text/css" href="{{ media('css/style.css') }}" />
+        <style type="text/css" media="screen">
+          #editor {
+                position: absolute;
+                top: 0;
+                right: 0;
+                bottom: 0;
+                left: 0;
+            }
+        </style>
 	</head>
 	<body>
+      <textarea>plain text area</textarea>
 		<div class="code_area_wrapper">
-			<div id="code_area_ace">This is some test code.
-			This is another line.
-			Meow.</div>
+			<div style="position:relative; width: 600px; height: 600px;">
+				<div id="editor">
+					This is some test code.
+					This is another line.
+					Meow.
+				</div>
+			</div>
 		</div>
 		<div class="machine_area_wrapper">
 			here lies the machine.
 		</div>
-	<script>
-		// enable codearea as an ace editor
-		var editor = ace.edit("code_area_ace");
-		editor.setTheme("ace/theme/twilight");
-		editor.getSession().setMode("ace/mode/python");
-	</script>
+		<script>
+			// enable codearea as an ace editor
+			var editor = ace.edit("editor");
+			editor.setTheme("ace/theme/github");
+			editor.getSession().setMode("ace/mode/python");
+		</script>
 	</body>
 </html>
