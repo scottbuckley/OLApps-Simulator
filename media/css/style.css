@@ -5,10 +5,12 @@ body {
 .code_area_wrapper {
 	float: left;
 	width: 310px;
+	position: relative;
 }
 
 .machine_area_wrapper {
 	float: left;
+	position: relative;
 }
 
 .code_area_wrapper, .machine_area_wrapper {
