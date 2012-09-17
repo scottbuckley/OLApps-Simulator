@@ -4,14 +4,23 @@
 		<title>Simulator</title>
 		<script src="/common/jquery.min.js"></script>
 		{{ app_init_js }}
+		<script src="{{ media('js/ace/ace.js') }}" type="text/javascript" charset="utf-8"></script>
 		<link rel="stylesheet" type="text/css" href="{{ media('css/style.css') }}" />
 	</head>
 	<body>
 		<div class="code_area_wrapper">
-			<textarea></textarea>
+			<div id="code_area_ace">This is some test code.
+			This is another line.
+			Meow.</div>
 		</div>
 		<div class="machine_area_wrapper">
 			here lies the machine.
 		</div>
+	<script>
+		// enable codearea as an ace editor
+		var editor = ace.edit("code_area_ace");
+		editor.setTheme("ace/theme/twilight");
+		editor.getSession().setMode("ace/mode/python");
+	</script>
 	</body>
 </html>
