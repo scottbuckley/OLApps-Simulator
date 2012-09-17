@@ -1,7 +1,9 @@
 .code_area_wrapper {
 	color: blue;
+	float: left;
 }
 
-.code_area_wrapper {
+.machine_area_wrapper {
 	color: red;
+	float: left;
 }
