@@ -42,10 +42,10 @@ var SparcHighlightRules = function() {
 		"start" : [ 
 		{
             token : "comment",
-            regex : "\\!.*$"
+            regex : "\\!.*$"		// the rest of a line after an exclaim (!)
         }, {
             token : "keyword.operator",
-            regex : "\\+|\\-"
+            regex : "\\+|\\-"		// + or -
         }, {
 			// here we check a bunch of maps for item presence, and return appropriate tokens
             token : function(value) {
@@ -60,7 +60,7 @@ var SparcHighlightRules = function() {
            }, regex : "[a-zA-Z_$%][a-zA-Z0-9_$]*\\b"
 		}, {
 			token: "markup.italic",
-			regex: "[a-zA-Z_\\.][a-zA-Z0-9_\\.]\\:\\b"
+			regex: "^\W*[a-zA-Z_\\.][a-zA-Z0-9_\\.]\\:"	// a word at the start of a line ending with a colon
 		}
 	] }
     
