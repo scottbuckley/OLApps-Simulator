@@ -20,8 +20,8 @@ exports.Mode = Mode;
 define('ace/mode/sparc_highlight_rules', function(require, exports, module) {
 
 var oop = require("ace/lib/oop");
+var lang = require("../lib/lang");
 var TextHighlightRules = require("ace/mode/text_highlight_rules").TextHighlightRules;
-
 var SparcHighlightRules = function() {
 
 	/* import some default text rules */
