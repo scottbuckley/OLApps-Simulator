@@ -59,7 +59,8 @@ var SparcHighlightRules = function() {
                     return "support.function";
                 else
                     return "identifier";
-           }}
+           }, regex : "[a-zA-Z_$][a-zA-Z0-9_$]*\\b"
+		}
 	] }
 	
 	/* implement these rules */
