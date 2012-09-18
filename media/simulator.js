@@ -36,7 +36,7 @@ function RSim_SyntaxAnalysis() {
 		for (line in codeLines) {
 			//$("#debugbox").append('' + line + ' [ ' + codeLines[line] + ']');
 			$("#debugbox").append('' + parseLine(codeLines[line], line+1) + '');
-			$("#debugbox").append('<br />');
+			$("#debugbox").append('<br /><br/>');
 		}
 	};
 	
@@ -46,37 +46,20 @@ function RSim_SyntaxAnalysis() {
 		var line_Original =   lineString;
 		var line_NoComments = $.trim(line_Original.split("!", 1)[0]);
 		
-		var lineBreakdownPatt = /(([\S]+:)?\s*([\S]+))?(\s+([^,]*)\s*(,\s*([^,]*))?\s*(,\s*([^,]*))?\s*(,\s*([^,]*))?)?/i;
+		var lineBreakdownPatt = /(([\S]+):)?\s*(([\S]+)(\s+([^,\s]*)\s*(,\s*([^,\s]*))?\s*(,\s*([^,\s]*))?\s*(,\s*([^,\s]*))?)?)?/i;
+		//                       12            34      5   6           7    8             9    1             1    1  
+		//                                                                                     0             1    2  
 		var reResults = line_NoComments.match(lineBreakdownPatt);
 		
 		var line_Label =     reResults[2];
-		var line_Directive = reResults[3];
-		var line_Param1 =    reResults[5];
-		var line_Param2 =    reResults[7];
-		var line_Param3 =    reResults[9];
-		var line_Param4 =    reResults[11];
-		
-		/* Manual parsing of commands. Replaced with RegExp parsing
-		var line_Label;
-		var line_NoLabel;
-		var line_LabelSplit = line_NoComments.split(":");
-		
-		// if line_NoComments contains a ":"
-		if (line_NoComments.indexOf(":") !== -1) {
-			line_Label =   $.trim(line_NoComments.split(":", 1)[0]);
-			line_NoLabel = $.trim(line_NoComments.substring(line_Label.length+1));
-		} else {
-			line_Label =   "";
-			line_NoLabel = line_NoComments;
-		}
-		
-		var line_Directive =     line_NoLabel.split(/\W/, 1)[0];
-		var line_Parameters =    $.trim(line_NoLabel.substring(firstItem.length));
-		var line_ParameterList = line_Parameters.split(",");
-		*/
+		var line_Directive = reResults[4];
+		var line_Param1 =    reResults[6];
+		var line_Param2 =    reResults[8];
+		var line_Param3 =    reResults[10];
+		var line_Param4 =    reResults[12];
 		
 		
-		return '{' + line_Label + '}-{' + line_Directive + '}-{' + line_Param1 + '}-{' + line_Param2 + '}-{' + line_Param3 + '}-{' + line_Param4 + '}';
+		return '{LABEL: ' + line_Label + '}-{DIR: ' + line_Directive + '}-{PAR1: ' + line_Param1 + '}-{PAR2: ' + line_Param2 + '}-{PAR3: ' + line_Param3 + '}-{PAR4: ' + line_Param4 + '}';
 	};
 	
 }
