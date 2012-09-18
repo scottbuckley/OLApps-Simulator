@@ -11,22 +11,28 @@ var Mode = function() {
 oop.inherits(Mode, TextMode);
 
 (function() {
-    // Extra logic goes here. (see below)
+    this.getNextLineIndent = function(state, line, tab) {
+        return this.$getIndent(line);
+    };
+
+    this.checkOutdent = function(state, line, input) {
+        return this.$outdent.checkOutdent(line, input);
+    };
+
+    this.autoOutdent = function(state, doc, row) {
+        this.$outdent.autoOutdent(doc, row);
+    };
 }).call(Mode.prototype);
 
 exports.Mode = Mode;
 });
+
 
 define('ace/mode/sparc_highlight_rules', function(require, exports, module) {
 
 var oop = require("ace/lib/oop");
 var lang = require("../lib/lang");
 var TextHighlightRules = require("ace/mode/text_highlight_rules").TextHighlightRules;
-
-this.getNextLineIndent = function(state, line, tab) {
-	var indent = this.$getIndent(line);
-	return indent;
-}
 
 var SparcHighlightRules = function() {
 
