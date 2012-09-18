@@ -24,9 +24,6 @@ var lang = require("../lib/lang");
 var TextHighlightRules = require("ace/mode/text_highlight_rules").TextHighlightRules;
 var SparcHighlightRules = function() {
 
-	/* import some default text rules */
-    //this.$rules = new TextHighlightRules().getRules();
-	
 	/* define some maps to store a list of keywords, etc. */
 	var keywords = lang.arrayToMap(
         ("add|addx|and|andn|or|orn|udiv|umul|sdiv|smul|sub|subx|taddcc|tsubcc|xor|xnor|" +
@@ -34,17 +31,18 @@ var SparcHighlightRules = function() {
 		"subxcc|taddcctv|tsubcctv|xorcc|xnorcc").split("|") );
 
     var builtinConstants = lang.arrayToMap(
-        ("True|False|None|NotImplemented|Ellipsis|__debug__").split("|") );
+        ("\\.align|\\.ascii|\\.asciz|\\.byte|\\.data|\\.global|\\.half|\\.include|\\.skip|" + 
+		"\\.text|\\.word").split("|") );
 
     var builtinFunctions = lang.arrayToMap(
         ("%lo|%hi").split("|") );
 	
-	/* define extra rules for SPARC */
+	/* define the rules for SPARC */
 	this.$rules =  {
 		"start" : [ 
 		{
             token : "comment",
-            regex : "\!.*$"
+            regex : "\\!.*$"
         }, {
             token : "keyword.operator",
             regex : "\\+|\\-"
@@ -59,12 +57,12 @@ var SparcHighlightRules = function() {
                     return "support.function";
                 else
                     return "identifier";
-           }, regex : "[a-zA-Z_$][a-zA-Z0-9_$]*\\b"
+           }, regex : "[a-zA-Z_$%][a-zA-Z0-9_$]*\\b"
+		}, {
+			token: "markup.italic",
+			regex: "[a-zA-Z_\\.][a-zA-Z0-9_\\.]\\:\\b"
 		}
 	] }
-	
-	/* implement these rules */
-	//this.addRules(sparcRules);
     
 }
 
