@@ -12,7 +12,8 @@ oop.inherits(Mode, TextMode);
 
 (function() {
     this.getNextLineIndent = function(state, line, tab) {
-        return this.$getIndent(line);
+		return tab + tab;
+        //return this.$getIndent(line);
     };
 
     this.checkOutdent = function(state, line, input) {

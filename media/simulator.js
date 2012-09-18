@@ -46,7 +46,7 @@ function RSim_SyntaxAnalysis() {
 		var line_Original =   lineString;
 		var line_NoComments = $.trim(line_Original.split("!", 1)[0]);
 		
-		var lineBreakdownPatt = /(([\S]+:)?\s*(\S+))?(\s+([^,]*)\s*(,\s*([^,]*))?\s*(,\s*([^,]*))?\s*(,\s*([^,]*))?)?/i;
+		var lineBreakdownPatt = /(([\S]+:)?\s*([\S]+))?(\s+([^,]*)\s*(,\s*([^,]*))?\s*(,\s*([^,]*))?\s*(,\s*([^,]*))?)?/i;
 		var reResults = line_NoComments.match(lineBreakdownPatt);
 		
 		var line_Label =     reResults[2];
