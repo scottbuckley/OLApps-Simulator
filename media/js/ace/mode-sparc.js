@@ -64,7 +64,7 @@ var SparcHighlightRules = function() {
 	] }
 	
 	/* implement these rules */
-	this.addRules(sparcRules);
+	//this.addRules(sparcRules);
     
 }
 
