@@ -25,7 +25,7 @@ var TextHighlightRules = require("ace/mode/text_highlight_rules").TextHighlightR
 var SparcHighlightRules = function() {
 
 	/* import some default text rules */
-    this.$rules = new TextHighlightRules().getRules();
+    //this.$rules = new TextHighlightRules().getRules();
 	
 	/* define some maps to store a list of keywords, etc. */
 	var keywords = lang.arrayToMap(
@@ -40,7 +40,7 @@ var SparcHighlightRules = function() {
         ("%lo|%hi").split("|") );
 	
 	/* define extra rules for SPARC */
-	var sparcRules = {
+	this.$rules =  {
 		"start" : [ 
 		{
             token : "comment",
@@ -71,4 +71,5 @@ var SparcHighlightRules = function() {
 oop.inherits(SparcHighlightRules, TextHighlightRules);
 
 exports.SparcHighlightRules = SparcHighlightRules;
+
 });
