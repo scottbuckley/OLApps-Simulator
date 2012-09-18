@@ -44,6 +44,9 @@ var SparcHighlightRules = function() {
             token : "comment",
             regex : "\\!.*$"		// the rest of a line after an exclaim (!)
         }, {
+			token: "markup.italic",
+			regex: "^\\W*[a-zA-Z_\\.][a-zA-Z0-9_\\.]*\\:"	// a word at the start of a line ending with a colon
+		}, {
             token : "keyword.operator",
             regex : "\\+|\\-"		// + or -
         }, {
@@ -58,9 +61,6 @@ var SparcHighlightRules = function() {
                 else
                     return "identifier";
            }, regex : "[a-zA-Z_$%][a-zA-Z0-9_$]*\\b"
-		}, {
-			token: "markup.italic",
-			regex: "^\W*[a-zA-Z_\\.][a-zA-Z0-9_\\.]\\:"	// a word at the start of a line ending with a colon
 		}
 	] }
     
