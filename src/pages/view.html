@@ -13,9 +13,13 @@
 	<body>
 		<div class="code_area_wrapper">
 			<div id="editor_wrapper">
-				<div id="editor">This is some test code.
-This is another line.
-Meow.</div>
+				<div id="editor">save %sp, -64, %sp
+	mov 5, %l0
+	cmp %l0, 5
+	and %r1, 5, %r8
+	ta 1 ! Should NEVER happen
+end: mov 1, %g1
+	ta 0</div>
 			</div>
 		</div>
 		<div class="machine_area_wrapper">
@@ -23,8 +27,8 @@ Meow.</div>
 			<a class="btn" href="javascript:LockEditor();">Lock Editor</a>
 			<a class="btn" href="javascript:UnlockEditor();">Unlock Editor</a>
 			<div style="border: 2px solid #dddddd; margin-top: 5px; padding: 5px;" id="debugbox"></div>
-			<a href="javascript:editor.getSession().setMode('ace/mode/python');;">JS Abrakadabra Python</a> <br/>
-			<a href="javascript:editor.getSession().setMode('ace/mode/sparc');;">JS Abrakadabra Sparc</a> <br/>
+			<a href="javascript:editor.setTheme('ace/theme/eclipse');">JS Abrakadabra Python</a> <br/>
+			<a href="javascript:editor.setTheme('ace/theme/tomorrow');">JS Abrakadabra Sparc</a> <br/>
 		</div>
 		<script>
 			// enable codearea as an ace editor

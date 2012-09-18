@@ -22,6 +22,12 @@ define('ace/mode/sparc_highlight_rules', function(require, exports, module) {
 var oop = require("ace/lib/oop");
 var lang = require("../lib/lang");
 var TextHighlightRules = require("ace/mode/text_highlight_rules").TextHighlightRules;
+
+this.getNextLineIndent = function(state, line, tab) {
+	var indent = this.$getIndent(line);
+	return indent;
+}
+
 var SparcHighlightRules = function() {
 
 	/* define some maps to store a list of keywords, etc. */
@@ -65,9 +71,9 @@ var SparcHighlightRules = function() {
 	] }
     
 }
-
 oop.inherits(SparcHighlightRules, TextHighlightRules);
-
 exports.SparcHighlightRules = SparcHighlightRules;
+
+
 
 });
