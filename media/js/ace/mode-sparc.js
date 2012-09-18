@@ -15,14 +15,6 @@ oop.inherits(Mode, TextMode);
 		return tab + tab;
         //return this.$getIndent(line);
     };
-
-    this.checkOutdent = function(state, line, input) {
-        return this.$outdent.checkOutdent(line, input);
-    };
-
-    this.autoOutdent = function(state, doc, row) {
-        this.$outdent.autoOutdent(doc, row);
-    };
 }).call(Mode.prototype);
 
 exports.Mode = Mode;
