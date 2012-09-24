@@ -24,54 +24,158 @@ var UnlockEditor = function() {
 };
 
 /* classes */
-function RSim_SyntaxAnalysis() {
-	var aceEditSession = aceEditor.getSession();
-	var codeLines = new Array();
+
+
+function CodeLine(codeString, codeLine) {
+	this.originalCode = codeString;
+	this.lineNumber = codeLine;
+	this.comment = "";
+	this.hasLabel = false;
+	this.label = "";
+	this.hasInstruction = false;
+	this.instruction = "";
+	this.parameters = new Array();
 	
-	this.parse = function() {
-		codeLines = aceEditSession.getLines(0, aceEditSession.getLength())
-		
-		// display the separated lines from the code
-		$("#debugbox").text("");
-		for (line in codeLines) {
-			//$("#debugbox").append('' + line + ' [ ' + codeLines[line] + ']');
-			$("#debugbox").append('' + parseLine(codeLines[line], line+1) + '');
-			$("#debugbox").append('<br /><br/>');
+	{ /** Construction **/
+		// comment
+		if (codeString.indexOf("!") !== -1) {
+			this.comment = $.trim(codeString.substring(codeString.indexOf("!")));
+			codeString = codeString.split("!", 1)[0];
 		}
-	};
-	
-	var parseLine = function(lineString, lineNumber) {
-	
-		var lineNumber =      lineNumber;
-		var line_Original =   lineString;
-		var line_NoComments = $.trim(line_Original.split("!", 1)[0]);
 		
-		var lineBreakdownPatt = /(([\S]+):)?\s*(([\S]+)(\s+([^,\s]*)\s*(,\s*([^,\s]*))?\s*(,\s*([^,\s]*))?\s*(,\s*([^,\s]*))?)?)?/i;
-		//                       12            34      5   6           7    8             9    1             1    1  
-		//                                                                                     0             1    2  
-		var reResults = line_NoComments.match(lineBreakdownPatt);
+		// label
+		if (codeString.indexOf(":") !== -1) {
+			this.hasLabel = true;
+			var codeColonSplit = codeString.split(":");
+			this.label = $.trim(codeColonSplit[0]);
+			codeString = $.trim(codeColonSplit[codeColonSplit.length-1]);
+		}
 		
-		var line_Label =     reResults[2];
-		var line_Directive = reResults[4];
-		var line_Param1 =    reResults[6];
-		var line_Param2 =    reResults[8];
-		var line_Param3 =    reResults[10];
-		var line_Param4 =    reResults[12];
-		
-		
-		return '{LABEL: ' + line_Label + '}-{DIR: ' + line_Directive + '}-{PAR1: ' + line_Param1 + '}-{PAR2: ' + line_Param2 + '}-{PAR3: ' + line_Param3 + '}-{PAR4: ' + line_Param4 + '}';
-	};
-	
+		// instruction
+		codeString = $.trim(codeString.replace(/\s{2,}/g, " "));
+		if (codeString.length > 0) {
+			this.hasInstruction = true;
+			this.instruction = codeString.split(" ", 1)[0];
+			
+			// parameters
+			var paramCode = codeString.substring(this.instruction.length);
+			var paramsUntrimmed = paramCode.split(",");
+			for (param in paramsUntrimmed) {
+				this.parameters.push($.trim(paramsUntrimmed[param]));
+			}
+		}
+	}
 }
 
 
-function SpDir() { }
 
-function SpDir_BlankLine() {
+
+
+
+function RSim_SyntaxAnalysis() {
+	var aceEditSession = aceEditor.getSession();
+	var rawCodeLines = new Array();
+	var parsedLines = new Array();
+	var simpleLines = new Array();
+	var labelDefinitions = new Object();
+	
+	this.parse = function() {
+
+		//get text (lines) from aceEditor object.
+		rawCodeLines = aceEditSession.getLines(0, aceEditSession.getLength())
+		
+		// convert raw code lines into CodeLine objects
+		//    rawCodeLines[] -> parsedLines[]
+		parsedLines = new Array();
+		for (rawLineIndex in rawCodeLines) {
+			thisLine = new CodeLine(rawCodeLines[rawLineIndex], (parseInt(rawLineIndex) + 1));
+			parsedLines.push(thisLine);
+		}
+		
+		// convert CodeLine objects into SimpleCodeLine objects, omitting blank lines and
+		// creating a map of labels to line numbers.
+		//    parsedLines[] -> simpleLines[]
+		var hasWaitingLabel = false;
+		var waitingLabels = new Array();
+		simpleLines = new Array();
+		for (parsedLineIndex in parsedLines) {
+			var thisLine = parsedLines[parsedLineIndex];
+			
+			if (thisLine.hasInstruction || thisLine.hasLabel) {
+					if (thisLine.hasInstruction === false) {
+						// this line is simply a label declaration. apply this label to the next instruction line.
+						hasWaitingLabel = true;
+						waitingLabels.push(thisLine.label);
+					} else {
+						// this line has an instruction. add it to the list.
+						simpleLines.push(new SimpleCodeLine(thisLine.instruction, thisLine.parameters, thisLine.lineNumber));
+						
+						// add this line's label to the list.
+						if (thisLine.hasLabel === true) {
+							//labelDefinitions.push(new LabelDefinition(thisLine.label, thisLine.lineNumber));
+							labelDefinitions[thisLine.label] = thisLine.lineNumber;
+						}
+						
+						// add any previously defined labels to the list for this line number.
+						if (hasWaitingLabel === true) {
+							for (waitingLabelIndex in waitingLabels) {
+								//labelDefinitions.push(new LabelDefinition(waitingLabels[waitingLabelIndex], thisLine.lineNumber));
+								labelDefinitions[waitingLabels[waitingLabelIndex]] = thisLine.lineNumber;
+							}
+							hasWaitingLabel = false;
+							waitingLabels = new Array();
+						}
+					}
+			}
+		}
+		
+		// debug
+		$("#debugbox").text(""); //debug
+		for (i in simpleLines) {
+			thisLine = simpleLines[i];
+			//$("#debugbox").append();
+			$("#debugbox").append('{' + thisLine.lineNumber + '}{');
+			$("#debugbox").append(thisLine.instruction + '}{');
+			$("#debugbox").append(thisLine.parameters + '}{');
+			$("#debugbox").append('<br /><br/>');
+		}
+		
+		$("#debugbox").append('<br /><br/>');
+		
+		for (key in labelDefinitions) {
+			if (labelDefinitions.hasOwnProperty(key)) {
+				$("#debugbox").append('{' + key + ': ' + labelDefinitions[key] + '}');
+				$("#debugbox").append('<br />');
+			}
+		}
+		
+		
+		
+		
+	};
+	
+	var 
+	
+}
+
+function SimpleCodeLine(instruction, parameters, lineNumber) {
+	this.instruction = instruction;
+	this.parameters = parameters;
+	this.lineNumber = lineNumber;
+}
+
+function LabelDefinition(labelString, lineNumber) {
+	this.labelString = labelString;
+	this.lineNumber = lineNumber;
+}
+
+function Instruction() { }
+
+function Instruction_BlankLine() {
 	this.prototype = new SpDir();
 }
 
-function SpDir_ADD() {
+function Instruction_ADD() {
 	this.prototype = new SpDir();
 	
 }
