@@ -3,16 +3,26 @@
 var aceEditor;
 var myMachine;
 
+var aa_pubInstr;
+
 /* functions */
-var StartMachine = function(var editor) {
+var StartMachine = function(editor) {
 	aceEditor = editor;
 	myMachine = new Machine();
 };
 
-var PressButton = function() {
+var PressButtonParse = function() {
 	myMachine.parse();
 };
 
+var PressButtonExecute = function() {
+	myMachine.execute();
+	PressButtonUpdateTable();
+};
+
+var PressButtonUpdateTable = function() {
+	myMachine.updateTable();
+};
 
 
 var LockEditor = function() {
@@ -59,35 +69,73 @@ var getComplexSyntheticList = function() { return ComplexSyntheticList; };
 
 /* classes */
 
-function Machine {
+function Machine() {
 	/* private attributes */
 	var myParser    = new Parser();
 	var myMemory    = new Memory();
 	var myRegisters = new Registers();
 	
-	{ /** Construction **/
-		
-	}
+	var myInstructions = new Array();
+	var currentInstructionIndex = 0;
 	
 	
 	/* public methods */
 	this.parse = function() {
-		myParser.parse();
+		myInstructions = myParser.parse();
+		currentInstructionIndex = 0;
+		prepForExec();
 	};
 	
+	//prepare for next execution (move arrow)
+	var prepForExec = function() {
+		var currentInstruction = myInstructions[currentInstructionIndex];
+		var lineNumber = currentInstruction.getLineNumber();
+		aceEditor.getSession().setAnnotations([{row: (lineNumber-1), column: 0, text: "Next Instruction", type: "info"}]);
+		aa_pubInstr = currentInstruction;
+	};
+	
+	this.execute = function() {
+		var currentInstruction = myInstructions[currentInstructionIndex];
+		currentInstruction.execute(myRegisters, myMemory);
+		currentInstructionIndex++;
+		
+		if (currentInstructionIndex >= myInstructions.length) { currentInstructionIndex = 0; }
+		prepForExec();
+	}
+	
+	var sub = function(instr) {
+		
+	};
+	
+	this.updateTable = function() {
+		var regCount = myRegisters.getRegCount();
+		var jQueryCellPrefix = "#reg";
+		
+		for (var i=0; i<regCount; i++) {
+			var cellName  = jQueryCellPrefix + pad(i, 2);
+			var cellValue = myRegisters.getRegFromIndex(i);
+			//if (cellValue != "0") alert(cellValue);
+			$(cellName).text(cellValue);
+		}
+	}
 	
 	/* private methods */
-	
-	
+	var pad = function(num, size) {
+		var s = num+"";
+		while (s.length < size) s = "0" + s;
+		return s;
+	}
+
 	
 }
 
 function MemoryBlock(newBlockIndex, memBlockSize) {
 	/* private attributes */
-	int blockIndex;
-	int MEMBLOCK_SIZE;
+	var kittens = "meow";
+	var MEMBLOCK_SIZE;
+	var blockIndex;
 	var words;
-	int wordCount;
+	var wordCount;
 	
 	
 	{ /** Constructor **/
@@ -99,10 +147,10 @@ function MemoryBlock(newBlockIndex, memBlockSize) {
 	}
 	
 	/* public methods */
-	this.getWord = function(int address) {
+	this.getWord = function(address) {
 		if (isAligned(address)) {
 			if (isInRange(address)) {
-				int relevantWordIndex = (address-blockIndex)/4;
+				var relevantWordIndex = (address-blockIndex)/4;
 				return words[relevantWordIndex]
 			} else {
 				//FIXME: Error Reporting.
@@ -112,54 +160,50 @@ function MemoryBlock(newBlockIndex, memBlockSize) {
 			//FIXME: Error Reporting.
 			return false;
 		}
-	}
+	};
 	
-	this.getByte = function(int address) {
+	this.getByte = function(address) {
 		//FIXME: Implement (get word, shift into byte, return)
-	}
+	};
 	
 	/* private methods */
 	var initialiseData = function() {
-		for (int i=0; i<25; i++) {
+		for (var i=0; i<25; i++) {
 			words[i] = 0;
 		}
-	}
+	};
 	
-	var isInRange = function(int address) {
+	var isInRange = function(address) {
 		if (address < blockIndex) return false;
-		if (address => (blockIndex + MEMBLOCK_SIZE)) return false;
+		if (address >= (blockIndex + MEMBLOCK_SIZE)) return false;
 		return true;
-	}
+	};
 	
-	var isAligned = function(int address) {
+	var isAligned = function(address) {
 		return ((address%4) == 0);
-	}
+	};
 	
 }
 
 function Memory() {
 	/* private constants */
-	int MEMBLOCK_SIZE = 100;
+	var MEMBLOCK_SIZE = 100;
 	
 	/* private attributes */
 	var memBlocks = new Object();
 	
 	/* private methods */
-	var getBlockIndexFromAddress = function(int address) {
-		
-	}
+	var getBlockIndex = function(address) {
+		return address - (address % MEMBLOCK_SIZE);
+	};
 	
-	var getBlockIndex = function(int address) {
-		return address - (address % MEMBLOCK_SIZE)
-	}
-	
-	var isBlockAvail = function(int blockIndex) {
-		return memBlocks.hasOwnProperty(blockIndex)
-	}
+	var isBlockAvail = function(blockIndex) {
+		return memBlocks.hasOwnProperty(blockIndex);
+	};
 	
 	/* public methods */
-	this.getWord = function(int address) {
-		int blockIndex = getBlockIndex(address);
+	this.getWord = function(address) {
+		var blockIndex = getBlockIndex(address);
 		if (!isAddressAvail(blockIndex)) {
 			memBlocks[blockIndex] = new MemoryBlock(blockIndex, MEMBLOCK_SIZE);
 		}
@@ -173,7 +217,7 @@ function Registers() {
 	var regValues;
 	var strangeRegisters = [0]; //unusual registers like %r0
 	
-	int regCount = 32;
+	var regCount = 32;
 	var regDict = {
 		r0 : 0,      r1 :1 ,      r2 :2 ,      r3 :3 ,
 		r4 : 4,      r5 :5 ,      r6 :6 ,      r7 :7 ,
@@ -194,38 +238,54 @@ function Registers() {
 		 i7:31,       o7:15,       l7:23,       g7: 7,
 		 
 		 fp:30,       sp:14
-	}
+	};
 	
 	{ /** Construction. **/
 		regValues = new Array(regCount)
-		for (int i=0; i<regCount; i++) {
+		for (var i=0; i<regCount; i++) {
 			regValues[i] = 0;
 		}
 	}
 	
 	/* public methods */
-	this.getReg(var regStr) {
-		int regIndex = regIndexFromString(regStr);
-		
-		if (regIndex in strangeRegisters) {
+	this.getRegFromIndex = function(regIndex) { // Not for general use
+		if (strangeRegisters.indexOf(regIndex)!=-1) {
 			return getSpecialRegValue(regIndex);
 		} else {
 			return regValues[regIndex];
 		}
 	}
 	
-	this.setReg(var regStr, int newValue) {
-		int regIndex = regIndexFromString(regStr);
+	this.getReg = function(regStr) {
+		var regIndex = regIndexFromString(regStr);
 		
-		if (regIndex in strangeRegisters) {
+		if (strangeRegisters.indexOf(regIndex)!=-1) {
+			return getSpecialRegValue(regIndex);
+		} else {
+			return regValues[regIndex];
+		}
+	};
+	
+	this.setReg = function(regStr, newValue) {
+		var regIndex = regIndexFromString(regStr);
+		
+		if (strangeRegisters.indexOf(regIndex)!=-1) {
 			setSpecialRegValue(regIndex, newValue);
 		} else {
 			regValues[regIndex] = newValue;
 		}
+	};
+	
+	this.getRegCount = function() {
+		return regCount;
+	};
+	
+	this.isValidReg = function(regStr) {
+		return regDict.hasOwnProperty(regStr);
 	}
 	
 	/* private methods */
-	var regIndexFromString = function(var regStr) {
+	var regIndexFromString = function(regStr) {
 		if (regDict.hasOwnProperty(regStr)) {
 			return regDict[regStr];
 		} else {
@@ -233,17 +293,17 @@ function Registers() {
 			//FIXME: Error Reporting.
 			return false;
 		}
-	}
+	};
 	
-	var setSpecialRegValue = function(int regIndex, int newValue) {
+	var setSpecialRegValue = function(regIndex, newValue) {
 		switch (regIndex) {
 			case 0:
 				//do nothing
 				return true;
 		}
-	}
+	};
 	
-	var getSpecialRegValue = function(int regIndex) {
+	var getSpecialRegValue = function(regIndex) {
 		switch (regIndex) {
 			case 0:
 				return 0;
@@ -251,7 +311,7 @@ function Registers() {
 				//FIXME: Error Reporting
 				return false;
 		}
-	}
+	};
 }
 
 
@@ -262,6 +322,8 @@ function Parser() {
 	var simpleSyntheticList  = getSimpleSyntheticList();
 	var complexSyntheticList = getComplexSyntheticList();
 	var instructionList      = getInstructionList();
+	
+	var InstructionObjects   = undefined;
 	
 	this.parse = function() {
 	
@@ -274,6 +336,9 @@ function Parser() {
 		// convert CodeLine objects into SimpleCodeLine objects, omitting blank lines and
 		// creating a map of labels to line numbers.
 		var simpleLines = processCodeLines(parsedLines);
+		
+		//convert simpleCodeLine objects into a list of InstructionObjects, which are ready to execute
+		InstructionObjects = createInstructionObjects(simpleLines);
 		
 		
 		
@@ -301,7 +366,7 @@ function Parser() {
 		
 		/**  END DEBUG SECTION  **/
 		
-		
+		return InstructionObjects;
 		
 	};
 	
@@ -353,17 +418,17 @@ function Parser() {
 		}
 		
 		return simpleLines;
-	}
+	};
 	
 	
 	var createInstructionObjects = function(simpleLines) {
 		var instructionObjects = new Array();
 		
-		for (simpleLineIndex in simpleLine) {
+		for (simpleLineIndex in simpleLines) {
 			thisLine = simpleLines[simpleLineIndex];
 			
 			/** Instructions **/ 
-			if (thisLine.instruction in InstructionList) {
+			if (instructionList.indexOf(thisLine.instruction)!=-1) {
 				var thisInstr = instructionObjectFromSimpleLine(thisLine);
 				instructionObjects.push(thisInstr);
 			}
@@ -380,15 +445,19 @@ function Parser() {
 			
 		}
 		
+		return instructionObjects;
 	};
 	
-	var instructionObjectFromSimpleLine = function(var sLine) {
+	var instructionObjectFromSimpleLine = function(sLine) {
 		switch (sLine.instruction) {
-			case "add":		return new Instruction_ADD(sLine.parameters);
-			case "sub":		return new Instruction_SUB(sLine.parameters);
+			case "and":		return new Instruction_AND(sLine);
+			case "add":		return new Instruction_ADD(sLine);
+			case "sub":		return new Instruction_SUB(sLine);
+			case "nop":		return new Instruction_NOP(sLine);
 			default:
 				//FIXME: Error Handling. "Instruction not yet defined"
-				return false;
+				//return false;
+				return new Instruction_NOP(sLine);
 		}
 	};
 	
@@ -449,7 +518,43 @@ function CodeLine(codeString, codeLine) {
 }
 
 
-function Instruction() {
+function Instruction(simpleLine) {
+	var lineNumber;
+	var parameters;
+	
+	{ /** Construction **/
+		lineNumber = simpleLine.lineNumber;
+		parameters = simpleLine.parameters;
+	}
+	
+	// returns the linenumber for this instruction
+	this.getLineNumber = function() {
+		return lineNumber;
+	};
+	
+	this.getParameters = function() {
+		return parameters
+	};
+	
+	
+	
+	/* Helper functions for parsing parameters */
+	
+	this.isNumeric = function(param) {
+		if (param.search(/^-?[0-9]+$/) == -1)
+			return false;
+		else
+			return true;
+	}
+	
+	this.parseRegParameter = function(regString) {
+		if (regString.charAt(0) == "%") {
+			return regString.substring(1);
+		} else {
+			//FIXME: Error Reporting. "Invalid register parameter"
+			return false;
+		}
+	}
 	
 	// true when this instruction is a branch/trap/jump
 	// (for branch delay slot stuff)
@@ -460,6 +565,7 @@ function Instruction() {
 	// returns true if branching happens, otherwise false.
 	this.execute = function() {
 		//FIXME: Error Reporting. "This instruction is not yet implemented."
+		alert("This instruction is not yet implemented :(");
 		return false;
 	};
 	
@@ -471,44 +577,88 @@ function Instruction() {
 }
 
 // ADD Instruction
-function Instruction_ADD() {
-	this.prototype = new Instruction();
+function Instruction_ADD(x) {
+	this.prototype = new Instruction(x);
+	Instruction.call(this, x);
+	var parameters = this.getParameters();
+	var lineNumber = this.getLineNumber();
 	
-	this.execute = function() {
+	var regs1;
+	var regs2;
+	var regd;
+	var is_immediate = false;
+	var imm;
 	
+	{ /** Construction **/
+		if (parameters.length == 3) {
+			//parameter 1
+			regs1 = this.parseRegParameter(parameters[0]);
+			
+			//parameter 2
+			if (this.isNumeric(parameters[1])) {
+				is_immediate = true;
+				imm = parseInt(parameters[1]);
+			} else {
+				regs2 = this.parseRegParameter(parameters[1]);
+			}
+			
+			//parameter 3
+			regd = this.parseRegParameter(parameters[2]);
+			
+		} else {
+			//FIXME: Error Reporting. "Incorrect number of parameters"
+		}
+	}
+	
+	this.execute = function(reg, mem) {
+	
+		var value = parseInt(reg.getReg(regs1));
+		
+		if (is_immediate) {
+			value += imm;
+		} else {
+			value += parseInt(reg.getReg(regs2));
+		}
+		
+		reg.setReg(regd, value);
+	};
+}
+
+// AND Instruction
+function Instruction_AND(x) {
+	this.prototype = new Instruction(x);
+	Instruction.call(this, x);
+	var parameters = this.getParameters();
+	var lineNumber = this.getLineNumber();
+	
+	this.execute = function(reg, mem) {
+		reg.setReg("r5", 5); //debug
 	};
 }
 
 // SUB Instruction
-function Instruction_SUB() {
-	this.prototype = new Instruction();
+function Instruction_SUB(x) {
+	this.prototype = new Instruction(x);
+	Instruction.call(this, x);
+	var parameters = this.getParameters();
+	var lineNumber = this.getLineNumber();
 	
-	this.execute = function() {
-	
+	this.execute = function(reg, mem) {
+		//sub
 	};
 }
 
 // NOP Instruction
-function Instruction_SUB() {
-	this.prototype = new Instruction();
+function Instruction_NOP(x) {
+	this.prototype = new Instruction(x);
+	Instruction.call(this, x);
+	var parameters = this.getParameters();
+	var lineNumber = this.getLineNumber();
 	
-	this.execute = function() {
-		return true;
+	this.execute = function(reg, mem) {
+		//do nothing
 	};
 }
-
-// XXX Instruction
-function Instruction_XXX() {
-	this.prototype = new Instruction();
-	
-	this.execute = function() {
-	
-	};
-}
-
-
-
-
 
 
 

@@ -13,20 +13,27 @@
 	<body>
 		<div class="code_area_wrapper">
 			<div id="editor_wrapper">
-				<div id="editor">save %sp, -64, %sp
-	mov 5, %l0
-	cmp %l0, 5
-	and %r1, 5, %r8
-	ta 1 ! Should NEVER happen
-end: mov 1, %g1
-	ta 0</div>
+				<div id="editor">	and %r1, %r2, %r3
+	add %r0, 5, %r2
+	add %r0, 1, %r3
+	add %r2, %r3, %r4</div>
 			</div>
 		</div>
 		<div class="machine_area_wrapper">
-			<a class="btn btn-inverse" href="javascript:PressButton();">Parse</a>
+			<a class="btn btn-inverse" href="javascript:PressButtonParse();">Parse</a>
+			<a class="btn btn-inverse" href="javascript:PressButtonExecute();">Execute</a>
+			<a class="btn" href="javascript:PressButtonUpdateTable();">Update Table</a>
 			<a class="btn" href="javascript:LockEditor();">Lock Editor</a>
 			<a class="btn" href="javascript:UnlockEditor();">Unlock Editor</a>
 			<div style="border: 2px solid #dddddd; margin-top: 5px; padding: 5px;" id="debugbox"></div>
+			<div id="registerTable">
+				<table border="1px solid #ccc" width="600px">
+					<tr>   <td id="reg00"></td><td id="reg01"></td><td id="reg02"></td><td id="reg03"></td><td id="reg04"></td><td id="reg05"></td><td id="reg06"></td><td id="reg07"></td>   </tr>
+					<tr>   <td id="reg08"></td><td id="reg09"></td><td id="reg10"></td><td id="reg11"></td><td id="reg12"></td><td id="reg13"></td><td id="reg14"></td><td id="reg15"></td>   </tr>
+					<tr>   <td id="reg16"></td><td id="reg17"></td><td id="reg18"></td><td id="reg19"></td><td id="reg20"></td><td id="reg21"></td><td id="reg22"></td><td id="reg23"></td>   </tr>
+					<tr>   <td id="reg24"></td><td id="reg25"></td><td id="reg26"></td><td id="reg27"></td><td id="reg28"></td><td id="reg29"></td><td id="reg30"></td><td id="reg31"></td>   </tr>
+				</table>
+			</div>
 		</div>
 		<script>
 			// enable codearea as an ace editor
