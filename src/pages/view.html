@@ -23,12 +23,10 @@ end: mov 1, %g1
 			</div>
 		</div>
 		<div class="machine_area_wrapper">
-			<a class="btn btn-inverse" href="javascript:RSimParse();">Parse</a>
+			<a class="btn btn-inverse" href="javascript:PressButton();">Parse</a>
 			<a class="btn" href="javascript:LockEditor();">Lock Editor</a>
 			<a class="btn" href="javascript:UnlockEditor();">Unlock Editor</a>
 			<div style="border: 2px solid #dddddd; margin-top: 5px; padding: 5px;" id="debugbox"></div>
-			<a href="javascript:editor.getSession().setMode('ace/mode/python');">JS Abrakadabra Python</a> <br/>
-			<a href="javascript:editor.getSession().setMode('ace/mode/sparc');">JS Abrakadabra Sparc</a> <br/>
 		</div>
 		<script>
 			// enable codearea as an ace editor
@@ -36,7 +34,8 @@ end: mov 1, %g1
 			editor.setTheme("ace/theme/eclipse");
 			editor.getSession().setMode("ace/mode/sparc");
 			
-			RSimInitialise(editor);
+			//RSimInitialise(editor);
+			StartMachine(editor);
 		</script>
 	</body>
 </html>
