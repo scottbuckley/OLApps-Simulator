@@ -1,8 +1,7 @@
 
-/* variables */
+/* global variables */
 var aceEditor;
 var myMachine;
-
 var aa_pubInstr;
 
 /* functions */
@@ -11,17 +10,31 @@ var StartMachine = function(editor) {
 	myMachine = new Machine();
 };
 
+/*  "Parse" button */
 var PressButtonParse = function() {
 	myMachine.parse();
 };
 
+/* "Execute" button */
 var PressButtonExecute = function() {
 	myMachine.execute();
-	PressButtonUpdateTable();
+	myMachine.updateTable();
 };
 
-var PressButtonUpdateTable = function() {
-	myMachine.updateTable();
+
+/* this should be called when an error is found. */
+var reportError = function(errMsg) {
+	showAlert(errMsg);
+};
+
+/* shows a jquery/bootstrap error alert. */
+var alert_idnumber = 1;
+var showAlert = function(message) {
+	var type = "error";
+	var newID = "altNm" + alert_idnumber; alert_idnumber += 1;
+	var closeButton = "<button type='button' class='close' data-dismiss='alert'>x</button>"; // a nice x is: ×
+	$("#alert-area").append($("<div id='" + newID + "' class='alert alert-" + type + " hide fade in' data-alert>" + closeButton + message + "</div>"));
+	$("#" + newID).slideDown(); //cause the alert to slide in
 };
 
 
@@ -34,6 +47,18 @@ var UnlockEditor = function() {
 	aceEditor.setReadOnly(false);
 	$("#editor_wrapper").removeClass("editor_disabled");
 };
+
+/* adding 'format' to string's prototype, for easier string formatting (thanks to fearphage from stackoverflow) */
+String.prototype.format = function() {
+  var args = arguments;
+  return this.replace(/{(\d+)}/g, function(match, number) { 
+    return typeof args[number] != 'undefined'
+      ? args[number]
+      : match
+    ;
+  });
+};
+
 
 // instructions
 var InstructionList = ['stb', 'stba', 'sth', 'stha', 'st', 'sta', 'std', 'stda'     , 
@@ -77,11 +102,10 @@ function Machine() {
 	
 	var myInstructions = new Array();
 	var currentInstructionIndex = 0;
-	
-	
+
 	/* public methods */
 	this.parse = function() {
-		myInstructions = myParser.parse();
+		myInstructions = myParser.parse(myRegisters.isValidReg);
 		currentInstructionIndex = 0;
 		prepForExec();
 	};
@@ -89,12 +113,16 @@ function Machine() {
 	//prepare for next execution (move arrow)
 	var prepForExec = function() {
 		var currentInstruction = myInstructions[currentInstructionIndex];
-		var lineNumber = currentInstruction.getLineNumber();
+		var lineNumber = currentInstruction.lineNumber;
 		aceEditor.getSession().setAnnotations([{row: (lineNumber-1), column: 0, text: "Next Instruction", type: "info"}]);
 		aa_pubInstr = currentInstruction;
 	};
 	
 	this.execute = function() {
+		
+		/* Display an error if we aren't ready */
+		if (myInstructions.length === 0) { reportError("No instructions available to execute (parse first)."); return false; };
+		
 		var currentInstruction = myInstructions[currentInstructionIndex];
 		currentInstruction.execute(myRegisters, myMemory);
 		currentInstructionIndex++;
@@ -114,7 +142,6 @@ function Machine() {
 		for (var i=0; i<regCount; i++) {
 			var cellName  = jQueryCellPrefix + pad(i, 2);
 			var cellValue = myRegisters.getRegFromIndex(i);
-			//if (cellValue != "0") alert(cellValue);
 			$(cellName).text(cellValue);
 		}
 	}
@@ -131,7 +158,6 @@ function Machine() {
 
 function MemoryBlock(newBlockIndex, memBlockSize) {
 	/* private attributes */
-	var kittens = "meow";
 	var MEMBLOCK_SIZE;
 	var blockIndex;
 	var words;
@@ -153,11 +179,11 @@ function MemoryBlock(newBlockIndex, memBlockSize) {
 				var relevantWordIndex = (address-blockIndex)/4;
 				return words[relevantWordIndex]
 			} else {
-				//FIXME: Error Reporting.
+				reportError("Internal Error: calling MemoryBlock[{0}] with incorrect Address ({1})".format(blockIndex, address));
 				return false;
 			}
 		} else {
-			//FIXME: Error Reporting.
+			reportError("Error: Calling getWord() with unaligned word address.");
 			return false;
 		}
 	};
@@ -290,7 +316,7 @@ function Registers() {
 			return regDict[regStr];
 		} else {
 			// the given regStr is not a valid register identifier
-			//FIXME: Error Reporting.
+			reportError("Error: '{0}' is not a valid register name".format(regStr));
 			return false;
 		}
 	};
@@ -298,7 +324,6 @@ function Registers() {
 	var setSpecialRegValue = function(regIndex, newValue) {
 		switch (regIndex) {
 			case 0:
-				//do nothing
 				return true;
 		}
 	};
@@ -308,7 +333,7 @@ function Registers() {
 			case 0:
 				return 0;
 			default:
-				//FIXME: Error Reporting
+				reportError("Error: Register index {0} is not a special register.".format(regIndex));
 				return false;
 		}
 	};
@@ -322,11 +347,13 @@ function Parser() {
 	var simpleSyntheticList  = getSimpleSyntheticList();
 	var complexSyntheticList = getComplexSyntheticList();
 	var instructionList      = getInstructionList();
-	
 	var InstructionObjects   = undefined;
+	var regVerifyFunc;
 	
-	this.parse = function() {
-	
+	this.parse = function(myRegVerifyFunc) {
+		//store the function for verifying the name of a register
+		regVerifyFunc = myRegVerifyFunc;
+		
 		//get text (lines) from aceEditor object.
 		var rawCodeLines = aceEditSession.getLines(0, aceEditSession.getLength())
 		
@@ -341,14 +368,12 @@ function Parser() {
 		InstructionObjects = createInstructionObjects(simpleLines);
 		
 		
-		
 		/** START DEBUG SECTION **/
 		
 			// debug
 			$("#debugbox").text(""); //debug
 			for (i in simpleLines) {
 				thisLine = simpleLines[i];
-				//$("#debugbox").append();
 				$("#debugbox").append('{' + thisLine.lineNumber + '}{');
 				$("#debugbox").append(thisLine.instruction + '}{');
 				$("#debugbox").append(thisLine.parameters + '}{');
@@ -450,14 +475,14 @@ function Parser() {
 	
 	var instructionObjectFromSimpleLine = function(sLine) {
 		switch (sLine.instruction) {
-			case "and":		return new Instruction_AND(sLine);
-			case "add":		return new Instruction_ADD(sLine);
-			case "sub":		return new Instruction_SUB(sLine);
-			case "nop":		return new Instruction_NOP(sLine);
+			case "and":		return new Instruction_AND(sLine, regVerifyFunc);
+			case "add":		return new Instruction_ADD(sLine, regVerifyFunc);
+			case "sub":		return new Instruction_SUB(sLine, regVerifyFunc);
+			case "nop":		return new Instruction_NOP(sLine, regVerifyFunc);
 			default:
-				//FIXME: Error Handling. "Instruction not yet defined"
+				reportError("Error: The '{0}' instruction is not yet defined.".format(sLine.instruction));
+				return new Instruction_NOP(sLine, regVerifyFunc); //for now just return a NOP instruction.
 				//return false;
-				return new Instruction_NOP(sLine);
 		}
 	};
 	
@@ -518,28 +543,12 @@ function CodeLine(codeString, codeLine) {
 }
 
 
-function Instruction(simpleLine) {
-	var lineNumber;
-	var parameters;
-	
-	{ /** Construction **/
-		lineNumber = simpleLine.lineNumber;
-		parameters = simpleLine.parameters;
-	}
-	
-	// returns the linenumber for this instruction
-	this.getLineNumber = function() {
-		return lineNumber;
-	};
-	
-	this.getParameters = function() {
-		return parameters
-	};
-	
+function Instruction(simpleLine, regVerify) {
+	this.lineNumber = simpleLine.lineNumber;
+	this.parameters = simpleLine.parameters;
 	
 	
 	/* Helper functions for parsing parameters */
-	
 	this.isNumeric = function(param) {
 		if (param.search(/^-?[0-9]+$/) == -1)
 			return false;
@@ -551,7 +560,7 @@ function Instruction(simpleLine) {
 		if (regString.charAt(0) == "%") {
 			return regString.substring(1);
 		} else {
-			//FIXME: Error Reporting. "Invalid register parameter"
+			reportError("Registers must start with a '%' character.");
 			return false;
 		}
 	}
@@ -564,8 +573,7 @@ function Instruction(simpleLine) {
 	// if this is a branching instruction, this function
 	// returns true if branching happens, otherwise false.
 	this.execute = function() {
-		//FIXME: Error Reporting. "This instruction is not yet implemented."
-		alert("This instruction is not yet implemented :(");
+		reportError("This instruction is not yet implemented.");
 		return false;
 	};
 	
@@ -577,36 +585,28 @@ function Instruction(simpleLine) {
 }
 
 // ADD Instruction
-function Instruction_ADD(x) {
-	this.prototype = new Instruction(x);
-	Instruction.call(this, x);
-	var parameters = this.getParameters();
-	var lineNumber = this.getLineNumber();
+function Instruction_ADD(x,y) {
+	this.prototype = new Instruction(x,y); Instruction.call(this,x,y);
 	
-	var regs1;
-	var regs2;
-	var regd;
-	var is_immediate = false;
-	var imm;
+	var regs1; var regs2; var regd;
+	var is_immediate = false; var imm;
 	
 	{ /** Construction **/
-		if (parameters.length == 3) {
+		
+		if (this.parameters.length == 3) {
 			//parameter 1
-			regs1 = this.parseRegParameter(parameters[0]);
+			regs1 = this.parseRegParameter(this.parameters[0]);
 			
 			//parameter 2
-			if (this.isNumeric(parameters[1])) {
-				is_immediate = true;
-				imm = parseInt(parameters[1]);
-			} else {
-				regs2 = this.parseRegParameter(parameters[1]);
-			}
+			is_immediate = this.isNumeric(this.parameters[1]);
+			imm = parseInt(this.parameters[1]);
+			regs2 = this.parseRegParameter(this.parameters[1]);
 			
 			//parameter 3
-			regd = this.parseRegParameter(parameters[2]);
+			regd = this.parseRegParameter(this.parameters[2]);
 			
 		} else {
-			//FIXME: Error Reporting. "Incorrect number of parameters"
+			reportError("Incorrect number of parameters.");
 		}
 	}
 	
@@ -625,11 +625,8 @@ function Instruction_ADD(x) {
 }
 
 // AND Instruction
-function Instruction_AND(x) {
-	this.prototype = new Instruction(x);
-	Instruction.call(this, x);
-	var parameters = this.getParameters();
-	var lineNumber = this.getLineNumber();
+function Instruction_AND(x,y) {
+	this.prototype = new Instruction(x,y); Instruction.call(this,x,y);
 	
 	this.execute = function(reg, mem) {
 		reg.setReg("r5", 5); //debug
@@ -637,11 +634,8 @@ function Instruction_AND(x) {
 }
 
 // SUB Instruction
-function Instruction_SUB(x) {
-	this.prototype = new Instruction(x);
-	Instruction.call(this, x);
-	var parameters = this.getParameters();
-	var lineNumber = this.getLineNumber();
+function Instruction_SUB(x,y) {
+	this.prototype = new Instruction(x,y); Instruction.call(this,x,y);
 	
 	this.execute = function(reg, mem) {
 		//sub
@@ -649,11 +643,8 @@ function Instruction_SUB(x) {
 }
 
 // NOP Instruction
-function Instruction_NOP(x) {
-	this.prototype = new Instruction(x);
-	Instruction.call(this, x);
-	var parameters = this.getParameters();
-	var lineNumber = this.getLineNumber();
+function Instruction_NOP(x,y) {
+	this.prototype = new Instruction(x,y); Instruction.call(this,x,y);
 	
 	this.execute = function(reg, mem) {
 		//do nothing
