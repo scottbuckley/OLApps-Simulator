@@ -1,39 +1,19 @@
 body {
 	font-family: Verdana;
+	display:table;
 }
 
-.code_area_wrapper {
-	float: left;
+
+#everything_wrapper     {  }
+#code_area_wrapper       {  }
+#machine_area_wrapper {  }
+
+#machine_area {
+	border:  3px solid #eeeeee;
+	height:  575px;
+	width:   580px;
+	padding: 10px;
 }
-
-.machine_area_wrapper {
-	float:  left;
-	border: 3px solid #eeeeee;
-	height: 575px;
-	width:  580px;
-	margin-top:    10px;
-	margin-bottom:  0px;
-	margin-left:    0px;
-	margin-right:   0px;
-}
-
-.code_area_wrapper, .machine_area_wrapper {
-	/* Shared wrapper attributes */
-	padding-top:    10px;
-	padding-bottom: 10px;
-	padding-left:   10px;
-	padding-right:  10px;
-}
-
-/* not used atm (using ace instead)
-textarea {
-	width: 300px;
-	height: 120px;
-	border:	3px solid #cccccc;
-	padding: 5px;
-	font-family: Tahoma, sans-serif;
-} */
-
 
 /* ace editor stuff */ 
 #editor {
@@ -60,5 +40,13 @@ textarea {
 	background-repeat: no-repeat;
 	background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAAK/INwWK6QAAABl0RVh0U29mdHdhcmUAQWRvYmUgSW1hZ2VSZWFkeXHJZTwAAAEsSURBVDjLY/j//z8DJZhhmBuQvdj8a+p8w//xc3U5yTIgeb7h18bNUf/DZ2j8958qz0nQgPyltv9zF5v/TV9o/Ddxrv7fmvWh/1ednvi/ZLX/f9d+8b+23YI8eA0AOvn/hnPT/q89OwWsccXpCf8n7Cn5v/B41/+MpW7/TdvZ/+o2M/LjNADoZLDmvl35/zt3ZP9v3Zb2v2Fz4v+mren/Zxxq/h+zwOa/aj3DH5wGRM/W/L/y1IT/S0/0/l94rOv/vKMdQEOy/k8/1PQ/banHf8VahlfSlQwGOA0InK74z3Oi9D/nftF/1t38/+LmW/2fdrDhf9Jit//ytQzPJSsZtEiKBe1mxq/xC53/y1czPAFqVic5GoFO/ipXzfxftJJBkeyUKFzOwDm48wIAh5XH+g7drOwAAAAASUVORK5CYII=") !important;
 	
-
 }
+
+.ace_hoverhighlight {
+	background: rgba(255, 50, 50, 0.1) !important;
+	position: absolute;
+	width: 100% !important;
+	left: 0 !important;
+}
+
+

@@ -1,3 +1,5 @@
+// manually import ace's 'Range' class as aceRange, to overload the one many browsers have.
+var aceRange = require('ace/range').Range;
 
 /* global variables */
 var aceEditor;
@@ -12,6 +14,7 @@ var StartMachine = function(editor) {
 
 /*  "Parse" button */
 var PressButtonParse = function() {
+	hideAllAlerts();
 	myMachine.parse();
 };
 
@@ -21,20 +24,56 @@ var PressButtonExecute = function() {
 	myMachine.updateTable();
 };
 
+/* This is called when an alert area with a line number is mouseEnter'd */
+var currentHoverHighlightMarker;
+var editor_HoverHighlightOn = function(lineNumber) {
+	currentHoverHighlightMarker = aceEditor.getSession().addMarker(new aceRange(lineNumber-1, 0, lineNumber-1, 1), "ace_hoverhighlight", "line", true);
+};
+
+/* This is called when an alert area with a line number is mouseLeave'd */
+var editor_HoverHighlightOff = function() {
+	aceEditor.getSession().removeMarker(currentHoverHighlightMarker);
+};
 
 /* this should be called when an error is found. */
-var reportError = function(errMsg) {
-	showAlert(errMsg);
+var reportError = function(errMsg, lineNum) {
+	if (lineNum) {
+		showAlert("<b>Line {0}:&nbsp;</b>{1}".format(lineNum, errMsg), lineNum);
+	} else {
+		showAlert(errMsg);
+	}
 };
 
 /* shows a jquery/bootstrap error alert. */
 var alert_idnumber = 1;
-var showAlert = function(message) {
+var showAlert = function(message, lineHighlight) {
+	/* stuff to build alert */
 	var type = "error";
 	var newID = "altNm" + alert_idnumber; alert_idnumber += 1;
 	var closeButton = "<button type='button' class='close' data-dismiss='alert'>x</button>"; // a nice x is: ×
-	$("#alert-area").append($("<div id='" + newID + "' class='alert alert-" + type + " hide fade in' data-alert>" + closeButton + message + "</div>"));
-	$("#" + newID).slideDown(); //cause the alert to slide in
+	
+	/* build alert */
+	$("#alert-area").append($("<div id='" + newID + "' " + " class='alert alert-" + type + " hide fade in' data-dismiss='alert'>" + closeButton + message + "</div>"));
+	
+	/* maybe give the alert some 'hover' functionality */
+	if (!(typeof lineHighlight === 'undefined')) {
+		$("#" + newID).hover(
+			function(){ // this happens on MouseEnter
+				editor_HoverHighlightOn(lineHighlight);
+			},
+			function(){ // this happens on MouseLeave
+				editor_HoverHighlightOff();
+			}
+		);
+	}
+	
+	/* make the alert 'slide open' */
+	$("#" + newID).slideDown();
+};
+
+var hideAllAlerts = function() {
+	editor_HoverHighlightOff();
+	$("#alert-area").html("");
 };
 
 
@@ -129,10 +168,6 @@ function Machine() {
 		
 		if (currentInstructionIndex >= myInstructions.length) { currentInstructionIndex = 0; }
 		prepForExec();
-	}
-	
-	var sub = function(instr) {
-		
 	};
 	
 	this.updateTable = function() {
@@ -142,16 +177,30 @@ function Machine() {
 		for (var i=0; i<regCount; i++) {
 			var cellName  = jQueryCellPrefix + pad(i, 2);
 			var cellValue = myRegisters.getRegFromIndex(i);
-			$(cellName).text(cellValue);
+			//alert(cellName + " = " + cellValue + " // " + intHex(cellValue));
+			$(cellName).text(intHex(cellValue));
 		}
-	}
+	};
 	
 	/* private methods */
+	var intHex = function(num) {
+		var n = num;
+		var out = "";
+		for (i=0; i<8; i++) {
+			// prepend lowest 4 bits as hex character, then shift 4 bits to the right
+			out = (n & 15).toString(16) + out;
+			n = n >> 4;
+		}
+		return out.toUpperCase();
+	};
+	
 	var pad = function(num, size) {
 		var s = num+"";
 		while (s.length < size) s = "0" + s;
 		return s;
-	}
+	};
+	
+	
 
 	
 }
@@ -369,7 +418,7 @@ function Parser() {
 		
 		
 		/** START DEBUG SECTION **/
-		
+		/*
 			// debug
 			$("#debugbox").text(""); //debug
 			for (i in simpleLines) {
@@ -388,7 +437,7 @@ function Parser() {
 					$("#debugbox").append('<br />');
 				}
 			}
-		
+		*/
 		/**  END DEBUG SECTION  **/
 		
 		return InstructionObjects;
@@ -544,9 +593,10 @@ function CodeLine(codeString, codeLine) {
 
 
 function Instruction(simpleLine, regVerify) {
+													//reportError("INSTRUCTION"); //debug
 	this.lineNumber = simpleLine.lineNumber;
 	this.parameters = simpleLine.parameters;
-	
+	this.regVerify  = regVerify;
 	
 	/* Helper functions for parsing parameters */
 	this.isNumeric = function(param) {
@@ -558,9 +608,15 @@ function Instruction(simpleLine, regVerify) {
 	
 	this.parseRegParameter = function(regString) {
 		if (regString.charAt(0) == "%") {
-			return regString.substring(1);
+			var regName = regString.substring(1);
+			if (this.regVerify(regName)) {
+				return regName;
+			} else {
+				reportError("'{0}' is not a valid register name.".format(regName), this.lineNumber);
+				return false;
+			}
 		} else {
-			reportError("Registers must start with a '%' character.");
+			reportError("Registers must start with a '%' character.", this.lineNumber);
 			return false;
 		}
 	}
@@ -573,7 +629,7 @@ function Instruction(simpleLine, regVerify) {
 	// if this is a branching instruction, this function
 	// returns true if branching happens, otherwise false.
 	this.execute = function() {
-		reportError("This instruction is not yet implemented.");
+		reportError("This instruction is not yet implemented.", this.lineNumber);
 		return false;
 	};
 	
@@ -584,67 +640,112 @@ function Instruction(simpleLine, regVerify) {
 	};
 }
 
-// ADD Instruction
-function Instruction_ADD(x,y) {
-	this.prototype = new Instruction(x,y); Instruction.call(this,x,y);
+// ARITHMETIC INSTRUCTION GROUP
+function Instruction_Group_Arithmetic(x,y) {
+	/* --------- INHERITANCE STUFF --------- */
+	/* at the moment, just Parent.call(this,...) is happening. */
+	Instruction.call(this,x,y);
+	//this.prototype = new Instruction(x,y);
+	//reportError("INSTRUCTION_GROUP_ARITHMETIC"); //debug
+	/* ------------------------------------- */
 	
-	var regs1; var regs2; var regd;
-	var is_immediate = false; var imm;
+	// parameter variables (public)
+	this.regs1; this.regs2; this.regd;     // register source 1, register source 2, register destination.
+	this.imm; this.is_imm;                 // immediate parameter value, has immediate instead of register source 2.
 	
 	{ /** Construction **/
 		
+		this.is_imm = false; //default
+		
 		if (this.parameters.length == 3) {
 			//parameter 1
-			regs1 = this.parseRegParameter(this.parameters[0]);
+			this.regs1 = this.parseRegParameter(this.parameters[0]);
 			
 			//parameter 2
-			is_immediate = this.isNumeric(this.parameters[1]);
-			imm = parseInt(this.parameters[1]);
-			regs2 = this.parseRegParameter(this.parameters[1]);
+			this.is_imm = this.isNumeric(this.parameters[1]);
+			if (this.is_imm) { this.imm = parseInt(this.parameters[1]); }
+			else             { this.regs2 = this.parseRegParameter(this.parameters[1]); }
 			
 			//parameter 3
-			regd = this.parseRegParameter(this.parameters[2]);
+			this.regd = this.parseRegParameter(this.parameters[2]);
 			
 		} else {
-			reportError("Incorrect number of parameters.");
+			reportError("Incorrect number of parameters.", this.lineNumber);
 		}
 	}
-	
-	this.execute = function(reg, mem) {
-	
-		var value = parseInt(reg.getReg(regs1));
-		
-		if (is_immediate) {
-			value += imm;
-		} else {
-			value += parseInt(reg.getReg(regs2));
-		}
-		
-		reg.setReg(regd, value);
-	};
 }
 
-// AND Instruction
-function Instruction_AND(x,y) {
-	this.prototype = new Instruction(x,y); Instruction.call(this,x,y);
+// ADD Instruction
+function Instruction_ADD(x,y) {
+	/* --------- INHERITANCE STUFF --------- */
+	/* at the moment, just Parent.call(this,...) is happening. */
+	Instruction_Group_Arithmetic.call(this,x,y);
+	//this.prototype = new Instruction_Group_Arithmetic(x,y);
+	//reportError("INSTRUCTION_ADD"); //debug
+	/* ------------------------------------- */
+	//   regs1, regs2, regd, imm, is_imm. (this.* inherited)
 	
 	this.execute = function(reg, mem) {
-		reg.setReg("r5", 5); //debug
+		var value = parseInt(reg.getReg(this.regs1));
+		
+		if (this.is_imm) {
+			value += this.imm;
+		} else {
+			value += parseInt(reg.getReg(this.regs2));
+		}
+		
+		reg.setReg(this.regd, value);
 	};
 }
 
 // SUB Instruction
 function Instruction_SUB(x,y) {
-	this.prototype = new Instruction(x,y); Instruction.call(this,x,y);
+	/* --------- INHERITANCE STUFF --------- */
+	/* at the moment, just Parent.call(this,...) is happening. */
+	Instruction_Group_Arithmetic.call(this,x,y);
+	//this.prototype = new Instruction_Group_Arithmetic(x,y);
+	//reportError("INSTRUCTION_SUB"); //debug
+	/* ------------------------------------- */
+	//   regs1, regs2, regd, imm, is_imm. (this.* inherited)
 	
 	this.execute = function(reg, mem) {
-		//sub
+		var value = parseInt(reg.getReg(this.regs1));
+		
+		if (this.is_imm) {
+			value -= this.imm;
+		} else {
+			value -= parseInt(reg.getReg(this.regs2));
+		}
+		
+		reg.setReg(this.regd, value);
+	};
+}
+
+// AND Instruction
+function Instruction_AND(x,y) {
+	/* --------- INHERITANCE STUFF --------- */
+	/* at the moment, just Parent.call(this,...) is happening. */
+	Instruction_Group_Arithmetic.call(this,x,y);
+	//this.prototype = new Instruction_Group_Arithmetic(x,y);
+	//reportError("INSTRUCTION_AND"); //debug
+	/* ------------------------------------- */
+	//   regs1, regs2, regd, imm, is_imm. (this.* inherited)
+	
+	reportError("AND is not yet implemented.");
+	this.execute = function(reg, mem) {
+		reg.setReg("r5", 5); //debug
 	};
 }
 
 // NOP Instruction
 function Instruction_NOP(x,y) {
-	this.prototype = new Instruction(x,y); Instruction.call(this,x,y);
+	/* --------- INHERITANCE STUFF --------- */
+	/* at the moment, just Parent.call(this,...) is happening. */
+	Instruction_Group_Arithmetic.call(this,x,y);
+	//this.prototype = new Instruction_Group_Arithmetic(x,y);
+	//reportError("INSTRUCTION_NOP"); //debug
+	/* ------------------------------------- */
+	//   regs1, regs2, regd, imm, is_imm. (this.* inherited)
 	
 	this.execute = function(reg, mem) {
 		//do nothing
