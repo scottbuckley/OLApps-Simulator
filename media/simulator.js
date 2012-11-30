@@ -1,10 +1,13 @@
 // manually import ace's 'Range' class as aceRange, to overload the one many browsers have.
 var aceRange = require('ace/range').Range;
 
+var MAX_INT =       2147483647;
+var MIN_INT =      -2147483648;
+var INT_2POWER32 =  4294967296;
+
 /* global variables */
 var aceEditor;
 var myMachine;
-var aa_pubInstr;
 
 /* functions */
 var StartMachine = function(editor) {
@@ -141,7 +144,13 @@ function Machine() {
 	
 	var myInstructions = new Array();
 	var currentInstructionIndex = 0;
-
+	var doBranch = false;
+	var curBranchLine = -1;
+	
+	this.init = function() {
+		this.updateTable();
+	};
+	
 	/* public methods */
 	this.parse = function() {
 		myInstructions = myParser.parse(myRegisters.isValidReg);
@@ -154,7 +163,6 @@ function Machine() {
 		var currentInstruction = myInstructions[currentInstructionIndex];
 		var lineNumber = currentInstruction.lineNumber;
 		aceEditor.getSession().setAnnotations([{row: (lineNumber-1), column: 0, text: "Next Instruction", type: "info"}]);
-		aa_pubInstr = currentInstruction;
 	};
 	
 	this.execute = function() {
@@ -163,10 +171,23 @@ function Machine() {
 		if (myInstructions.length === 0) { reportError("No instructions available to execute (parse first)."); return false; };
 		
 		var currentInstruction = myInstructions[currentInstructionIndex];
-		currentInstruction.execute(myRegisters, myMemory);
-		currentInstructionIndex++;
+		var execResult = !!currentInstruction.execute(myRegisters, myMemory);
 		
-		if (currentInstructionIndex >= myInstructions.length) { currentInstructionIndex = 0; }
+		if (doBranch) {
+			currentInstructionIndex = (curBranchLine-1);
+			doBranch = false; curBranchLine = -1;
+		} else {
+			currentInstructionIndex++;
+			if (currentInstructionIndex >= myInstructions.length) { currentInstructionIndex = 0; }
+		}
+		
+		if (execResult && currentInstruction.isBranch) {
+			doBranch = true;
+			curBranchLine = currentInstruction.getBranchLine();
+		} else {
+			doBranch = false;
+		}
+		
 		prepForExec();
 	};
 	
@@ -174,12 +195,17 @@ function Machine() {
 		var regCount = myRegisters.getRegCount();
 		var jQueryCellPrefix = "#reg";
 		
-		for (var i=0; i<regCount; i++) {
+		for (var i=0; i<32; i++) {
 			var cellName  = jQueryCellPrefix + pad(i, 2);
 			var cellValue = myRegisters.getRegFromIndex(i);
-			//alert(cellName + " = " + cellValue + " // " + intHex(cellValue));
 			$(cellName).text(intHex(cellValue));
+			//$(cellName).text(intHex(cellValue) + " [{0}]".format(cellValue)); //debug, this shows the register's value in decimal.
 		}
+		
+		$("#regN").text("n: " + myRegisters.getReg("n"));
+		$("#regZ").text("z: " + myRegisters.getReg("z"));
+		$("#regV").text("v: " + myRegisters.getReg("v"));
+		$("#regC").text("c: " + myRegisters.getReg("c"));
 	};
 	
 	/* private methods */
@@ -201,6 +227,8 @@ function Machine() {
 	};
 	
 	
+	
+	this.init();
 
 	
 }
@@ -233,6 +261,22 @@ function MemoryBlock(newBlockIndex, memBlockSize) {
 			}
 		} else {
 			reportError("Error: Calling getWord() with unaligned word address.");
+			return false;
+		}
+	};
+	
+	this.setWord = function(address, value) {
+		if (isAligned(address)) {
+			if (isInRange(address)) {
+				var relevantWordIndex = (address-blockIndex)/4;
+				words[relevantWordIndex] = value
+				return true;
+			} else {
+				reportError("Internal Error: calling MemoryBlock[{0}] with incorrect Address ({1})".format(blockIndex, address));
+				return false;
+			}
+		} else {
+			reportError("Error: Calling setWord() with unaligned word address.");
 			return false;
 		}
 	};
@@ -285,15 +329,26 @@ function Memory() {
 		return memBlocks[blockIndex].getWord(address);
 	};
 	
+	this.setWord = function(address, value) {
+		var blockIndex = getBlockIndex(address);
+		if (!isAddressAvail(blockIndex)) {
+			memBlocks[blockIndex] = new MemoryBlock(blockIndex, MEMBLOCK_SIZE);
+		}
+		return memBlocks[blockIndex].setWord(address, value);
+	};
+	
 }
 
 function Registers() {
 	/* private attributes*/
 	var regValues;
-	var strangeRegisters = [0]; //unusual registers like %r0
+	var strangeRegisters = [0, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48];
 	
-	var regCount = 32;
+	var regCount = 49;
 	var regDict = {
+		
+		/* NUMBERED REGISTERS */
+		
 		r0 : 0,      r1 :1 ,      r2 :2 ,      r3 :3 ,
 		r4 : 4,      r5 :5 ,      r6 :6 ,      r7 :7 ,
 		r8 : 8,      r9 :9 ,      r10:10,      r11:11,
@@ -312,15 +367,39 @@ function Registers() {
 		 i6:30,       o6:14,       l6:22,       g6: 6,
 		 i7:31,       o7:15,       l7:23,       g7: 7,
 		 
-		 fp:30,       sp:14
+		 fp:30,       sp:14,
+		 
+		/* SPECIAL REGISTERS (apart from %r0) */
+		 
+		  Y:32,       PC:33,      nPC:34,      WIM:35,
+		
+		// The next 13 make up the PSR. They are a few bits each.
+		impl:36,
+		 ver:37,
+		   n:38,
+		   z:39,
+		   v:40,
+		   c:41,
+		  EC:42,
+		  EF:43,
+		 PIL:44,
+		   S:45,
+		  PS:46,
+		  ET:47,
+		 CWP:48
 	};
 	
-	{ /** Construction. **/
+	this.resetAllRegisters = function() {
 		regValues = new Array(regCount)
 		for (var i=0; i<regCount; i++) {
 			regValues[i] = 0;
-		}
+		}		
+	};
+	
+	{ /** Construction. **/
+		this.resetAllRegisters();
 	}
+	
 	
 	/* public methods */
 	this.getRegFromIndex = function(regIndex) { // Not for general use
@@ -357,7 +436,25 @@ function Registers() {
 	
 	this.isValidReg = function(regStr) {
 		return regDict.hasOwnProperty(regStr);
-	}
+	};
+	
+	this.isInRange = function(intValue) {
+		if (intValue > MAX_INT)
+			return false;
+		if (intValue < MIN_INT)
+			return false;
+		return true;
+	};
+	
+	this.putInRange = function(intValue) {
+		while (intValue > MAX_INT) {
+			intValue -= INT_2POWER32;
+		}
+		while (intValue < MIN_INT) {
+			intValue += INT_2POWER32;
+		}
+		return intValue;
+	};
 	
 	/* private methods */
 	var regIndexFromString = function(regStr) {
@@ -374,6 +471,16 @@ function Registers() {
 		switch (regIndex) {
 			case 0:
 				return true;
+			case 38: case 39: case 40: case 41: case 42: case 43: case 45: case 46: case 47:
+				if (newValue != 0 && newValue != 1){
+					reportError("Error assigning {0} to 1-bit special register.".format(newValue));
+				} else {
+					regValues[regIndex] = newValue;
+				}
+				return true;
+			default:
+				reportError("Error: Register index {0} is not a special register.".format(regIndex));
+				return false;
 		}
 	};
 	
@@ -381,6 +488,8 @@ function Registers() {
 		switch (regIndex) {
 			case 0:
 				return 0;
+			case 38: case 39: case 40: case 41: case 42: case 43: case 45: case 46: case 47:
+				return regValues[regIndex];
 			default:
 				reportError("Error: Register index {0} is not a special register.".format(regIndex));
 				return false;
@@ -392,16 +501,20 @@ function Registers() {
 /* PARSER CLASS deals with code processing */
 function Parser() {
 	var aceEditSession       = aceEditor.getSession();
-	var labelDefinitions     = new Object();
+	var labelDefinitions     = new Object(); //dict
 	var simpleSyntheticList  = getSimpleSyntheticList();
 	var complexSyntheticList = getComplexSyntheticList();
 	var instructionList      = getInstructionList();
 	var InstructionObjects   = undefined;
 	var regVerifyFunc;
+	var labelFunc;
 	
 	this.parse = function(myRegVerifyFunc) {
 		//store the function for verifying the name of a register
 		regVerifyFunc = myRegVerifyFunc;
+		
+		//store the function for verifying the name/location of a register
+		labelFunc = getLineFromLabel;
 		
 		//get text (lines) from aceEditor object.
 		var rawCodeLines = aceEditSession.getLines(0, aceEditSession.getLength())
@@ -494,6 +607,14 @@ function Parser() {
 		return simpleLines;
 	};
 	
+	//returns -1 if invalid label
+	var getLineFromLabel = function(labelString) {
+		if (labelDefinitions.hasOwnProperty(labelString)) {
+			return labelDefinitions[labelString];
+		} else {
+			return -1;
+		}
+	};
 	
 	var createInstructionObjects = function(simpleLines) {
 		var instructionObjects = new Array();
@@ -524,14 +645,32 @@ function Parser() {
 	
 	var instructionObjectFromSimpleLine = function(sLine) {
 		switch (sLine.instruction) {
-			case "and":		return new Instruction_AND(sLine, regVerifyFunc);
-			case "add":		return new Instruction_ADD(sLine, regVerifyFunc);
-			case "sub":		return new Instruction_SUB(sLine, regVerifyFunc);
-			case "nop":		return new Instruction_NOP(sLine, regVerifyFunc);
+			//arithmetic/logic
+			case "and":      return new Instruction_AND   (sLine, regVerifyFunc, labelFunc);
+			case "or":       return new Instruction_OR    (sLine, regVerifyFunc, labelFunc);
+			case "add":      return new Instruction_ADD   (sLine, regVerifyFunc, labelFunc);
+			case "addcc":    return new Instruction_ADDCC (sLine, regVerifyFunc, labelFunc);
+			case "sub":      return new Instruction_SUB   (sLine, regVerifyFunc, labelFunc);
+			case "subcc":    return new Instruction_SUBCC (sLine, regVerifyFunc, labelFunc);
+			//branch
+			case "ba":       return new Instruction_BA    (sLine, regVerifyFunc, labelFunc);
+			case "bn":       return new Instruction_BN    (sLine, regVerifyFunc, labelFunc);
+			case "bz":       //bz is be
+			case "be":       return new Instruction_BE    (sLine, regVerifyFunc, labelFunc);
+			case "bnz":      //bnz is bne
+			case "bne":      return new Instruction_BNE   (sLine, regVerifyFunc, labelFunc);
+			case "bpos":     return new Instruction_BPOS  (sLine, regVerifyFunc, labelFunc);
+			case "bneg":     return new Instruction_BNEG  (sLine, regVerifyFunc, labelFunc);
+			case "bl":       return new Instruction_BL    (sLine, regVerifyFunc, labelFunc);
+			case "ble":      return new Instruction_BLE   (sLine, regVerifyFunc, labelFunc);
+			case "bg":       return new Instruction_BG    (sLine, regVerifyFunc, labelFunc);
+			case "bge":      return new Instruction_BGE   (sLine, regVerifyFunc, labelFunc);
+			//misc
+			case "nop":      return new Instruction_NOP   (sLine, regVerifyFunc, labelFunc);
+			//error
 			default:
 				reportError("Error: The '{0}' instruction is not yet defined.".format(sLine.instruction));
-				return new Instruction_NOP(sLine, regVerifyFunc); //for now just return a NOP instruction.
-				//return false;
+				return false;
 		}
 	};
 	
@@ -592,11 +731,11 @@ function CodeLine(codeString, codeLine) {
 }
 
 
-function Instruction(simpleLine, regVerify) {
-													//reportError("INSTRUCTION"); //debug
-	this.lineNumber = simpleLine.lineNumber;
-	this.parameters = simpleLine.parameters;
-	this.regVerify  = regVerify;
+function Instruction(simpleLine, regVerify, labelVerify) {
+	this.lineNumber  = simpleLine.lineNumber;
+	this.parameters  = simpleLine.parameters;
+	this.regVerify   = regVerify;
+	this.labelVerify = labelVerify;
 	
 	/* Helper functions for parsing parameters */
 	this.isNumeric = function(param) {
@@ -634,19 +773,198 @@ function Instruction(simpleLine, regVerify) {
 	};
 	
 	// for branching instructions, this method returns
-	// the label (a string)
-	this.getLabel = function() {
+	// the line number to branch to (an integer)
+	this.getBranchLine = function() {
+		return -1;
+	};
+}
+
+
+// BRANCH INSTRUCTION GROUP
+function Instruction_Group_Branch(x,y,z) {
+	/* --------- INHERITANCE STUFF --------- */
+	/* at the moment, just Parent.call(this,...) is happening. */
+	Instruction.call(this,x,y,z);
+	/* ------------------------------------- */
+	
+	// parameter variables (public)
+	this.labelString = "";
+	
+	this.isBranch = true;
+	
+	{ /** Construction **/
+		
+		if (this.parameters.length == 1) {
+			//parameter 1 (label)
+			this.labelString = this.parameters[0];
+			if (this.labelVerify(this.labelString) == -1) {
+				reportError("Invalid label '{0}'.".format(this.labelString), this.lineNumber);
+			}
+			
+		} else {
+			reportError("Incorrect number of parameters. Got {0}, expected 1.".format(this.parameters.length), this.lineNumber);
+		}
+	}
+	
+	this.getBranchLine = function() {
+		return this.labelVerify(this.labelString);
+	};
+}
+
+// BA Instruction
+function Instruction_BA(x,y,z) {
+	/* --------- INHERITANCE STUFF --------- */
+	/* at the moment, just Parent.call(this,...) is happening. */
+	Instruction_Group_Branch.call(this,x,y,z);
+	/* ------------------------------------- */
+	//   labelString (this.* inherited)
+	this.execute = function(reg, mem) {
+		//always branch
+		return true;
+	};
+}
+
+// BN Instruction
+function Instruction_BN(x,y,z) {
+	/* --------- INHERITANCE STUFF --------- */
+	/* at the moment, just Parent.call(this,...) is happening. */
+	Instruction_Group_Branch.call(this,x,y,z);
+	/* ------------------------------------- */
+	//   labelString (this.* inherited)
+	
+	this.execute = function(reg, mem) {
+		//never branch
 		return false;
 	};
 }
 
-// ARITHMETIC INSTRUCTION GROUP
-function Instruction_Group_Arithmetic(x,y) {
+// BE (or BZ) Instruction
+function Instruction_BE(x,y,z) {
 	/* --------- INHERITANCE STUFF --------- */
 	/* at the moment, just Parent.call(this,...) is happening. */
-	Instruction.call(this,x,y);
-	//this.prototype = new Instruction(x,y);
-	//reportError("INSTRUCTION_GROUP_ARITHMETIC"); //debug
+	Instruction_Group_Branch.call(this,x,y,z);
+	/* ------------------------------------- */
+	//   labelString (this.* inherited)
+	
+	this.execute = function(reg, mem) {
+		//branch if special register z is 1
+		var z = (reg.getReg("z") === 1);
+		return ( z );
+	};
+}
+
+// BNE (or BNZ) Instruction
+function Instruction_BNE(x,y,z) {
+	/* --------- INHERITANCE STUFF --------- */
+	/* at the moment, just Parent.call(this,...) is happening. */
+	Instruction_Group_Branch.call(this,x,y,z);
+	/* ------------------------------------- */
+	//   labelString (this.* inherited)
+	
+	this.execute = function(reg, mem) {
+		//branch if special register z is 0
+		var z = (reg.getReg("z") === 1);
+		return ( !z );
+	};
+}
+
+// BPOS Instruction
+function Instruction_BPOS(x,y,z) {
+	/* --------- INHERITANCE STUFF --------- */
+	/* at the moment, just Parent.call(this,...) is happening. */
+	Instruction_Group_Branch.call(this,x,y,z);
+	/* ------------------------------------- */
+	//   labelString (this.* inherited)
+	
+	this.execute = function(reg, mem) {
+		//branch if special register n is 0
+		var n = (reg.getReg("n") === 1);
+		return ( !n );
+	};
+}
+
+// BNEG Instruction
+function Instruction_BNEG(x,y,z) {
+	/* --------- INHERITANCE STUFF --------- */
+	/* at the moment, just Parent.call(this,...) is happening. */
+	Instruction_Group_Branch.call(this,x,y,z);
+	/* ------------------------------------- */
+	//   labelString (this.* inherited)
+	
+	this.execute = function(reg, mem) {
+		//branch if special register n is 1
+		var n = (reg.getReg("n") === 1);
+		return ( n );
+	};
+}
+
+// BL Instruction
+function Instruction_BL(x,y,z) {
+	/* --------- INHERITANCE STUFF --------- */
+	/* at the moment, just Parent.call(this,...) is happening. */
+	Instruction_Group_Branch.call(this,x,y,z);
+	/* ------------------------------------- */
+	//   labelString (this.* inherited)
+	
+	this.execute = function(reg, mem) {
+		//branch if special register n is 1
+		var n = (reg.getReg("n") === 1);
+		return ( n );
+	};
+}
+
+// BG Instruction
+function Instruction_BG(x,y,z) {
+	/* --------- INHERITANCE STUFF --------- */
+	/* at the moment, just Parent.call(this,...) is happening. */
+	Instruction_Group_Branch.call(this,x,y,z);
+	/* ------------------------------------- */
+	//   labelString (this.* inherited)
+	
+	this.execute = function(reg, mem) {
+		//branch if special register n is 0
+		var n = (reg.getReg("n") === 1);
+		return ( !n );
+	};
+}
+
+// BLE Instruction
+function Instruction_BLE(x,y,z) {
+	/* --------- INHERITANCE STUFF --------- */
+	/* at the moment, just Parent.call(this,...) is happening. */
+	Instruction_Group_Branch.call(this,x,y,z);
+	/* ------------------------------------- */
+	//   labelString (this.* inherited)
+	
+	this.execute = function(reg, mem) {
+		//branch if n or z
+		var n = (reg.getReg("n") === 1);
+		var z = (reg.getReg("z") === 1);
+		return ( n || z );
+	};
+}
+
+// BGE Instruction
+function Instruction_BGE(x,y,z) {
+	/* --------- INHERITANCE STUFF --------- */
+	/* at the moment, just Parent.call(this,...) is happening. */
+	Instruction_Group_Branch.call(this,x,y,z);
+	/* ------------------------------------- */
+	//   labelString (this.* inherited)
+	
+	this.execute = function(reg, mem) {
+		//branch if !n
+		var n = (reg.getReg("n") === 1);
+		return ( !n );
+	};
+}
+
+
+// ARITHMETIC INSTRUCTION GROUP
+function Instruction_Group_Arithmetic(x,y,z) {
+	/* --------- INHERITANCE STUFF --------- */
+	/* at the moment, just Parent.call(this,...) is happening. */
+	Instruction.call(this,x,y,z);
 	/* ------------------------------------- */
 	
 	// parameter variables (public)
@@ -672,16 +990,21 @@ function Instruction_Group_Arithmetic(x,y) {
 		} else {
 			reportError("Incorrect number of parameters.", this.lineNumber);
 		}
+		
+		this.clearICC = function(reg) {
+			reg.setReg("n", 0);
+			reg.setReg("z", 0);
+			reg.setReg("v", 0);
+			reg.setReg("c", 0);
+		};
 	}
 }
 
 // ADD Instruction
-function Instruction_ADD(x,y) {
+function Instruction_ADD(x,y,z) {
 	/* --------- INHERITANCE STUFF --------- */
 	/* at the moment, just Parent.call(this,...) is happening. */
-	Instruction_Group_Arithmetic.call(this,x,y);
-	//this.prototype = new Instruction_Group_Arithmetic(x,y);
-	//reportError("INSTRUCTION_ADD"); //debug
+	Instruction_Group_Arithmetic.call(this,x,y,z);
 	/* ------------------------------------- */
 	//   regs1, regs2, regd, imm, is_imm. (this.* inherited)
 	
@@ -693,18 +1016,57 @@ function Instruction_ADD(x,y) {
 		} else {
 			value += parseInt(reg.getReg(this.regs2));
 		}
+		value = reg.putInRange(value);
 		
 		reg.setReg(this.regd, value);
 	};
 }
 
-// SUB Instruction
-function Instruction_SUB(x,y) {
+// ADDCC Instruction
+function Instruction_ADDCC(x,y,z) {
 	/* --------- INHERITANCE STUFF --------- */
 	/* at the moment, just Parent.call(this,...) is happening. */
-	Instruction_Group_Arithmetic.call(this,x,y);
-	//this.prototype = new Instruction_Group_Arithmetic(x,y);
-	//reportError("INSTRUCTION_SUB"); //debug
+	Instruction_Group_Arithmetic.call(this,x,y,z);
+	/* ------------------------------------- */
+	//   regs1, regs2, regd, imm, is_imm. (this.* inherited)
+	
+	this.execute = function(reg, mem) {
+		var value = parseInt(reg.getReg(this.regs1));
+		
+		if (this.is_imm) {
+			value += this.imm;
+		} else {
+			value += parseInt(reg.getReg(this.regs2));
+		}
+
+		this.clearICC(reg);
+		
+		// c/v (out of range (approximation))
+		if (!reg.isInRange(value)) {
+			reg.setReg("c", 1);
+			reg.setReg("v", 1);
+			value = reg.putInRange(value);
+		}
+		
+		// z (zero)
+		if (value == 0) {
+			reg.setReg("z", 1);
+		}
+		
+		// n (negative)
+		if (value < 0) {
+			reg.setReg("n", 1);
+		}
+		
+		reg.setReg(this.regd, value);
+	};
+}
+
+// SUBCC Instruction
+function Instruction_SUBCC(x,y,z) {
+	/* --------- INHERITANCE STUFF --------- */
+	/* at the moment, just Parent.call(this,...) is happening. */
+	Instruction_Group_Arithmetic.call(this,x,y,z);
 	/* ------------------------------------- */
 	//   regs1, regs2, regd, imm, is_imm. (this.* inherited)
 	
@@ -716,34 +1078,99 @@ function Instruction_SUB(x,y) {
 		} else {
 			value -= parseInt(reg.getReg(this.regs2));
 		}
+
+		this.clearICC(reg);
+		
+		// c/v (out of range (approximation))
+		if (!reg.isInRange(value)) {
+			reg.setReg("c", 1);
+			reg.setReg("v", 1);
+			value = reg.putInRange(value);
+		}
+		
+		// z (zero)
+		if (value == 0) {
+			reg.setReg("z", 1);
+		}
+		
+		// n (negative)
+		if (value < 0) {
+			reg.setReg("n", 1);
+		}
+		
+		reg.setReg(this.regd, value);
+	};
+}
+
+// SUB Instruction
+function Instruction_SUB(x,y,z) {
+	/* --------- INHERITANCE STUFF --------- */
+	/* at the moment, just Parent.call(this,...) is happening. */
+	Instruction_Group_Arithmetic.call(this,x,y,z);
+	/* ------------------------------------- */
+	//   regs1, regs2, regd, imm, is_imm. (this.* inherited)
+	
+	this.execute = function(reg, mem) {
+		var value = parseInt(reg.getReg(this.regs1));
+		
+		if (this.is_imm) {
+			value -= this.imm;
+		} else {
+			value -= parseInt(reg.getReg(this.regs2));
+		}
+		value = reg.putInRange(value);
 		
 		reg.setReg(this.regd, value);
 	};
 }
 
 // AND Instruction
-function Instruction_AND(x,y) {
+function Instruction_AND(x,y,z) {
 	/* --------- INHERITANCE STUFF --------- */
 	/* at the moment, just Parent.call(this,...) is happening. */
-	Instruction_Group_Arithmetic.call(this,x,y);
-	//this.prototype = new Instruction_Group_Arithmetic(x,y);
-	//reportError("INSTRUCTION_AND"); //debug
+	Instruction_Group_Arithmetic.call(this,x,y,z);
 	/* ------------------------------------- */
 	//   regs1, regs2, regd, imm, is_imm. (this.* inherited)
 	
-	reportError("AND is not yet implemented.");
 	this.execute = function(reg, mem) {
-		reg.setReg("r5", 5); //debug
+		var value = parseInt(reg.getReg(this.regs1));
+		
+		if (this.is_imm) {
+			value = (value & this.imm);
+		} else {
+			value = (value & parseInt(reg.getReg(this.regs2)));
+		}
+		
+		reg.setReg(this.regd, value);
+	};
+}
+
+// OR Instruction
+function Instruction_OR(x,y,z) {
+	/* --------- INHERITANCE STUFF --------- */
+	/* at the moment, just Parent.call(this,...) is happening. */
+	Instruction_Group_Arithmetic.call(this,x,y,z);
+	/* ------------------------------------- */
+	//   regs1, regs2, regd, imm, is_imm. (this.* inherited)
+	
+	this.execute = function(reg, mem) {
+		var value = parseInt(reg.getReg(this.regs1));
+		
+		if (this.is_imm) {
+			value = (value | this.imm);
+		} else {
+			value = (value | parseInt(reg.getReg(this.regs2)));
+		}
+		
+		reg.setReg(this.regd, value);
 	};
 }
 
 // NOP Instruction
-function Instruction_NOP(x,y) {
+function Instruction_NOP(x,y,z) {
 	/* --------- INHERITANCE STUFF --------- */
 	/* at the moment, just Parent.call(this,...) is happening. */
-	Instruction_Group_Arithmetic.call(this,x,y);
-	//this.prototype = new Instruction_Group_Arithmetic(x,y);
-	//reportError("INSTRUCTION_NOP"); //debug
+	Instruction.call(this,x,y,z);
 	/* ------------------------------------- */
 	//   regs1, regs2, regd, imm, is_imm. (this.* inherited)
 	

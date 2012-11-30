@@ -14,10 +14,12 @@
       <table><tr>
          <td><div id="code_area_wrapper">
               <div id="editor_wrapper">
-                  <div id="editor">	and %r1, %r2, %r3
-	add %r0, 5, %r2
-	add %r0, 1, %r3
-	sub %r2, %r3, %r4</div>
+                  <div id="editor">    and %r1, %r2, %r3
+zz:	add %r0, 5, %r3
+	add %r2, 1, %r2
+	subcc %r2, %r3, %r4
+	ba zz
+	nop</div>
               </div>
           </div></td>
           <td><div id="machine_area_wrapper">
@@ -30,7 +32,15 @@
                 <script> $("#redirectButton").attr("href", document.URL); </script>
                 <div id="alert-area" style="padding-top:10px;"></div>
                 <div id="registerTable">
-                    <table border="1px solid #ccc" width="600px">
+                    <table border="1px solid" width="600px">
+						<tr><td colspan="8" style="padding-left: 40px; padding-right: 40px;">
+							<table border="1px solid" width="500px"><tr>
+								<td id="regN"></td>
+								<td id="regZ"></td>
+								<td id="regV"></td>
+								<td id="regC"></td>
+							</tr></table>
+						</td></tr>
                         <tr>   <td id="reg00"></td><td id="reg01"></td><td id="reg02"></td><td id="reg03"></td><td id="reg04"></td><td id="reg05"></td><td id="reg06"></td><td id="reg07"></td>   </tr>
                         <tr>   <td id="reg08"></td><td id="reg09"></td><td id="reg10"></td><td id="reg11"></td><td id="reg12"></td><td id="reg13"></td><td id="reg14"></td><td id="reg15"></td>   </tr>
                         <tr>   <td id="reg16"></td><td id="reg17"></td><td id="reg18"></td><td id="reg19"></td><td id="reg20"></td><td id="reg21"></td><td id="reg22"></td><td id="reg23"></td>   </tr>
@@ -41,13 +51,13 @@
           </div></td>
 		</tr></table>
 		<script>
-		  // enable codearea as an ace editor
-		  var editor = ace.edit("editor");
-		  editor.setTheme("ace/theme/eclipse");
-		  editor.getSession().setMode("ace/mode/sparc");
-		  
-		  //RSimInitialise(editor);
-		  StartMachine(editor);
+			// Enable codearea as an ace editor.
+			var editor = ace.edit("editor");
+			editor.setTheme("ace/theme/eclipse");
+			editor.getSession().setMode("ace/mode/sparc");
+
+			// Start the JSIsem machine
+			StartMachine(editor);
 		</script>
 	</body>
 </html>

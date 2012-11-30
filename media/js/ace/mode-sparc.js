@@ -32,7 +32,7 @@ var SparcHighlightRules = function() {
 	var keywords = lang.arrayToMap(
         ("add|addx|and|andn|or|orn|udiv|umul|sdiv|smul|sub|subx|taddcc|tsubcc|xor|xnor|" +
         "addcc|addxcc|andcc|andncc|mulscc|orcc|orncc|udivcc|umulcc|sdivcc|smulcc|subcc|" + 
-		"subxcc|taddcctv|tsubcctv|xorcc|xnorcc").split("|") );
+		"subxcc|taddcctv|tsubcctv|xorcc|xnorcc|ba|pn|bpos|bneg|ble|bl|bge|bg|nop").split("|") );
 
     var builtinConstants = lang.arrayToMap(
         ("\\.align|\\.ascii|\\.asciz|\\.byte|\\.data|\\.global|\\.half|\\.include|\\.skip|" + 

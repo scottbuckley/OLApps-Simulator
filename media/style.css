@@ -8,6 +8,11 @@ body {
 #code_area_wrapper       {  }
 #machine_area_wrapper {  }
 
+#registerTable {
+	font-size:  12px;
+	text-align: center;
+}
+
 #machine_area {
 	border:  3px solid #eeeeee;
 	height:  575px;
