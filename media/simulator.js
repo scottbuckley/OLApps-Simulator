@@ -53,7 +53,7 @@ var showAlert = function(message, lineHighlight) {
 	/* stuff to build alert */
 	var type = "error";
 	var newID = "altNm" + alert_idnumber; alert_idnumber += 1;
-	var closeButton = "<button type='button' class='close' data-dismiss='alert'>x</button>"; // a nice x is: ×
+	var closeButton = "<button type='button' class='close' data-dismiss='alert'>&#215;</button>"; // &#215; defines a mutliplication symbol.
 	
 	/* build alert */
 	$("#alert-area").append($("<div id='" + newID + "' " + " class='alert alert-" + type + " hide fade in' data-dismiss='alert'>" + closeButton + message + "</div>"));
@@ -152,6 +152,8 @@ function Machine() {
 	};
 	
 	/* public methods */
+	
+	// tell the Parser object to parse the user text
 	this.parse = function() {
 		myInstructions = myParser.parse(myRegisters.isValidReg);
 		currentInstructionIndex = 0;
@@ -281,10 +283,6 @@ function MemoryBlock(newBlockIndex, memBlockSize) {
 		}
 	};
 	
-	this.getByte = function(address) {
-		//FIXME: Implement (get word, shift into byte, return)
-	};
-	
 	/* private methods */
 	var initialiseData = function() {
 		for (var i=0; i<25; i++) {
@@ -337,6 +335,9 @@ function Memory() {
 		return memBlocks[blockIndex].setWord(address, value);
 	};
 	
+	this.getByte = function(address) {
+		//FIXME: Implement (get word, shift into byte, return)
+	};
 }
 
 function Registers() {
@@ -507,16 +508,12 @@ function Parser() {
 	var instructionList      = getInstructionList();
 	var InstructionObjects   = undefined;
 	var regVerifyFunc;
-	var labelFunc;
 	
 	this.parse = function(myRegVerifyFunc) {
-		//store the function for verifying the name of a register
+		// store the function for verifying the name of a register
 		regVerifyFunc = myRegVerifyFunc;
 		
-		//store the function for verifying the name/location of a register
-		labelFunc = getLineFromLabel;
-		
-		//get text (lines) from aceEditor object.
+		// get text (lines) from aceEditor object.
 		var rawCodeLines = aceEditSession.getLines(0, aceEditSession.getLength())
 		
 		// convert raw code lines into CodeLine objects
@@ -646,27 +643,27 @@ function Parser() {
 	var instructionObjectFromSimpleLine = function(sLine) {
 		switch (sLine.instruction) {
 			//arithmetic/logic
-			case "and":      return new Instruction_AND   (sLine, regVerifyFunc, labelFunc);
-			case "or":       return new Instruction_OR    (sLine, regVerifyFunc, labelFunc);
-			case "add":      return new Instruction_ADD   (sLine, regVerifyFunc, labelFunc);
-			case "addcc":    return new Instruction_ADDCC (sLine, regVerifyFunc, labelFunc);
-			case "sub":      return new Instruction_SUB   (sLine, regVerifyFunc, labelFunc);
-			case "subcc":    return new Instruction_SUBCC (sLine, regVerifyFunc, labelFunc);
+			case "and":      return new Instruction_AND   (sLine, regVerifyFunc, getLineFromLabel);
+			case "or":       return new Instruction_OR    (sLine, regVerifyFunc, getLineFromLabel);
+			case "add":      return new Instruction_ADD   (sLine, regVerifyFunc, getLineFromLabel);
+			case "addcc":    return new Instruction_ADDCC (sLine, regVerifyFunc, getLineFromLabel);
+			case "sub":      return new Instruction_SUB   (sLine, regVerifyFunc, getLineFromLabel);
+			case "subcc":    return new Instruction_SUBCC (sLine, regVerifyFunc, getLineFromLabel);
 			//branch
-			case "ba":       return new Instruction_BA    (sLine, regVerifyFunc, labelFunc);
-			case "bn":       return new Instruction_BN    (sLine, regVerifyFunc, labelFunc);
+			case "ba":       return new Instruction_BA    (sLine, regVerifyFunc, getLineFromLabel);
+			case "bn":       return new Instruction_BN    (sLine, regVerifyFunc, getLineFromLabel);
 			case "bz":       //bz is be
-			case "be":       return new Instruction_BE    (sLine, regVerifyFunc, labelFunc);
+			case "be":       return new Instruction_BE    (sLine, regVerifyFunc, getLineFromLabel);
 			case "bnz":      //bnz is bne
-			case "bne":      return new Instruction_BNE   (sLine, regVerifyFunc, labelFunc);
-			case "bpos":     return new Instruction_BPOS  (sLine, regVerifyFunc, labelFunc);
-			case "bneg":     return new Instruction_BNEG  (sLine, regVerifyFunc, labelFunc);
-			case "bl":       return new Instruction_BL    (sLine, regVerifyFunc, labelFunc);
-			case "ble":      return new Instruction_BLE   (sLine, regVerifyFunc, labelFunc);
-			case "bg":       return new Instruction_BG    (sLine, regVerifyFunc, labelFunc);
-			case "bge":      return new Instruction_BGE   (sLine, regVerifyFunc, labelFunc);
+			case "bne":      return new Instruction_BNE   (sLine, regVerifyFunc, getLineFromLabel);
+			case "bpos":     return new Instruction_BPOS  (sLine, regVerifyFunc, getLineFromLabel);
+			case "bneg":     return new Instruction_BNEG  (sLine, regVerifyFunc, getLineFromLabel);
+			case "bl":       return new Instruction_BL    (sLine, regVerifyFunc, getLineFromLabel);
+			case "ble":      return new Instruction_BLE   (sLine, regVerifyFunc, getLineFromLabel);
+			case "bg":       return new Instruction_BG    (sLine, regVerifyFunc, getLineFromLabel);
+			case "bge":      return new Instruction_BGE   (sLine, regVerifyFunc, getLineFromLabel);
 			//misc
-			case "nop":      return new Instruction_NOP   (sLine, regVerifyFunc, labelFunc);
+			case "nop":      return new Instruction_NOP   (sLine, regVerifyFunc, getLineFromLabel);
 			//error
 			default:
 				reportError("Error: The '{0}' instruction is not yet defined.".format(sLine.instruction));
@@ -679,11 +676,6 @@ function Parser() {
 function SimpleCodeLine(instruction, parameters, lineNumber) {
 	this.instruction = instruction.toLowerCase();
 	this.parameters = parameters;
-	this.lineNumber = lineNumber;
-}
-
-function LabelDefinition(labelString, lineNumber) {
-	this.labelString = labelString;
 	this.lineNumber = lineNumber;
 }
 
@@ -782,14 +774,10 @@ function Instruction(simpleLine, regVerify, labelVerify) {
 
 // BRANCH INSTRUCTION GROUP
 function Instruction_Group_Branch(x,y,z) {
-	/* --------- INHERITANCE STUFF --------- */
-	/* at the moment, just Parent.call(this,...) is happening. */
 	Instruction.call(this,x,y,z);
-	/* ------------------------------------- */
-	
 	// parameter variables (public)
-	this.labelString = "";
 	
+	this.labelString = "";
 	this.isBranch = true;
 	
 	{ /** Construction **/
@@ -813,10 +801,7 @@ function Instruction_Group_Branch(x,y,z) {
 
 // BA Instruction
 function Instruction_BA(x,y,z) {
-	/* --------- INHERITANCE STUFF --------- */
-	/* at the moment, just Parent.call(this,...) is happening. */
 	Instruction_Group_Branch.call(this,x,y,z);
-	/* ------------------------------------- */
 	//   labelString (this.* inherited)
 	this.execute = function(reg, mem) {
 		//always branch
@@ -826,10 +811,7 @@ function Instruction_BA(x,y,z) {
 
 // BN Instruction
 function Instruction_BN(x,y,z) {
-	/* --------- INHERITANCE STUFF --------- */
-	/* at the moment, just Parent.call(this,...) is happening. */
 	Instruction_Group_Branch.call(this,x,y,z);
-	/* ------------------------------------- */
 	//   labelString (this.* inherited)
 	
 	this.execute = function(reg, mem) {
@@ -840,10 +822,7 @@ function Instruction_BN(x,y,z) {
 
 // BE (or BZ) Instruction
 function Instruction_BE(x,y,z) {
-	/* --------- INHERITANCE STUFF --------- */
-	/* at the moment, just Parent.call(this,...) is happening. */
 	Instruction_Group_Branch.call(this,x,y,z);
-	/* ------------------------------------- */
 	//   labelString (this.* inherited)
 	
 	this.execute = function(reg, mem) {
@@ -855,10 +834,7 @@ function Instruction_BE(x,y,z) {
 
 // BNE (or BNZ) Instruction
 function Instruction_BNE(x,y,z) {
-	/* --------- INHERITANCE STUFF --------- */
-	/* at the moment, just Parent.call(this,...) is happening. */
 	Instruction_Group_Branch.call(this,x,y,z);
-	/* ------------------------------------- */
 	//   labelString (this.* inherited)
 	
 	this.execute = function(reg, mem) {
@@ -870,10 +846,7 @@ function Instruction_BNE(x,y,z) {
 
 // BPOS Instruction
 function Instruction_BPOS(x,y,z) {
-	/* --------- INHERITANCE STUFF --------- */
-	/* at the moment, just Parent.call(this,...) is happening. */
 	Instruction_Group_Branch.call(this,x,y,z);
-	/* ------------------------------------- */
 	//   labelString (this.* inherited)
 	
 	this.execute = function(reg, mem) {
@@ -885,10 +858,7 @@ function Instruction_BPOS(x,y,z) {
 
 // BNEG Instruction
 function Instruction_BNEG(x,y,z) {
-	/* --------- INHERITANCE STUFF --------- */
-	/* at the moment, just Parent.call(this,...) is happening. */
 	Instruction_Group_Branch.call(this,x,y,z);
-	/* ------------------------------------- */
 	//   labelString (this.* inherited)
 	
 	this.execute = function(reg, mem) {
@@ -900,10 +870,7 @@ function Instruction_BNEG(x,y,z) {
 
 // BL Instruction
 function Instruction_BL(x,y,z) {
-	/* --------- INHERITANCE STUFF --------- */
-	/* at the moment, just Parent.call(this,...) is happening. */
 	Instruction_Group_Branch.call(this,x,y,z);
-	/* ------------------------------------- */
 	//   labelString (this.* inherited)
 	
 	this.execute = function(reg, mem) {
@@ -915,10 +882,7 @@ function Instruction_BL(x,y,z) {
 
 // BG Instruction
 function Instruction_BG(x,y,z) {
-	/* --------- INHERITANCE STUFF --------- */
-	/* at the moment, just Parent.call(this,...) is happening. */
 	Instruction_Group_Branch.call(this,x,y,z);
-	/* ------------------------------------- */
 	//   labelString (this.* inherited)
 	
 	this.execute = function(reg, mem) {
@@ -930,10 +894,7 @@ function Instruction_BG(x,y,z) {
 
 // BLE Instruction
 function Instruction_BLE(x,y,z) {
-	/* --------- INHERITANCE STUFF --------- */
-	/* at the moment, just Parent.call(this,...) is happening. */
 	Instruction_Group_Branch.call(this,x,y,z);
-	/* ------------------------------------- */
 	//   labelString (this.* inherited)
 	
 	this.execute = function(reg, mem) {
@@ -946,10 +907,7 @@ function Instruction_BLE(x,y,z) {
 
 // BGE Instruction
 function Instruction_BGE(x,y,z) {
-	/* --------- INHERITANCE STUFF --------- */
-	/* at the moment, just Parent.call(this,...) is happening. */
 	Instruction_Group_Branch.call(this,x,y,z);
-	/* ------------------------------------- */
 	//   labelString (this.* inherited)
 	
 	this.execute = function(reg, mem) {
@@ -962,10 +920,7 @@ function Instruction_BGE(x,y,z) {
 
 // ARITHMETIC INSTRUCTION GROUP
 function Instruction_Group_Arithmetic(x,y,z) {
-	/* --------- INHERITANCE STUFF --------- */
-	/* at the moment, just Parent.call(this,...) is happening. */
 	Instruction.call(this,x,y,z);
-	/* ------------------------------------- */
 	
 	// parameter variables (public)
 	this.regs1; this.regs2; this.regd;     // register source 1, register source 2, register destination.
@@ -1002,10 +957,7 @@ function Instruction_Group_Arithmetic(x,y,z) {
 
 // ADD Instruction
 function Instruction_ADD(x,y,z) {
-	/* --------- INHERITANCE STUFF --------- */
-	/* at the moment, just Parent.call(this,...) is happening. */
 	Instruction_Group_Arithmetic.call(this,x,y,z);
-	/* ------------------------------------- */
 	//   regs1, regs2, regd, imm, is_imm. (this.* inherited)
 	
 	this.execute = function(reg, mem) {
@@ -1024,10 +976,7 @@ function Instruction_ADD(x,y,z) {
 
 // ADDCC Instruction
 function Instruction_ADDCC(x,y,z) {
-	/* --------- INHERITANCE STUFF --------- */
-	/* at the moment, just Parent.call(this,...) is happening. */
 	Instruction_Group_Arithmetic.call(this,x,y,z);
-	/* ------------------------------------- */
 	//   regs1, regs2, regd, imm, is_imm. (this.* inherited)
 	
 	this.execute = function(reg, mem) {
@@ -1064,10 +1013,7 @@ function Instruction_ADDCC(x,y,z) {
 
 // SUBCC Instruction
 function Instruction_SUBCC(x,y,z) {
-	/* --------- INHERITANCE STUFF --------- */
-	/* at the moment, just Parent.call(this,...) is happening. */
 	Instruction_Group_Arithmetic.call(this,x,y,z);
-	/* ------------------------------------- */
 	//   regs1, regs2, regd, imm, is_imm. (this.* inherited)
 	
 	this.execute = function(reg, mem) {
@@ -1104,10 +1050,7 @@ function Instruction_SUBCC(x,y,z) {
 
 // SUB Instruction
 function Instruction_SUB(x,y,z) {
-	/* --------- INHERITANCE STUFF --------- */
-	/* at the moment, just Parent.call(this,...) is happening. */
 	Instruction_Group_Arithmetic.call(this,x,y,z);
-	/* ------------------------------------- */
 	//   regs1, regs2, regd, imm, is_imm. (this.* inherited)
 	
 	this.execute = function(reg, mem) {
@@ -1126,10 +1069,7 @@ function Instruction_SUB(x,y,z) {
 
 // AND Instruction
 function Instruction_AND(x,y,z) {
-	/* --------- INHERITANCE STUFF --------- */
-	/* at the moment, just Parent.call(this,...) is happening. */
 	Instruction_Group_Arithmetic.call(this,x,y,z);
-	/* ------------------------------------- */
 	//   regs1, regs2, regd, imm, is_imm. (this.* inherited)
 	
 	this.execute = function(reg, mem) {
@@ -1147,10 +1087,7 @@ function Instruction_AND(x,y,z) {
 
 // OR Instruction
 function Instruction_OR(x,y,z) {
-	/* --------- INHERITANCE STUFF --------- */
-	/* at the moment, just Parent.call(this,...) is happening. */
 	Instruction_Group_Arithmetic.call(this,x,y,z);
-	/* ------------------------------------- */
 	//   regs1, regs2, regd, imm, is_imm. (this.* inherited)
 	
 	this.execute = function(reg, mem) {
@@ -1168,11 +1105,7 @@ function Instruction_OR(x,y,z) {
 
 // NOP Instruction
 function Instruction_NOP(x,y,z) {
-	/* --------- INHERITANCE STUFF --------- */
-	/* at the moment, just Parent.call(this,...) is happening. */
 	Instruction.call(this,x,y,z);
-	/* ------------------------------------- */
-	//   regs1, regs2, regd, imm, is_imm. (this.* inherited)
 	
 	this.execute = function(reg, mem) {
 		//do nothing

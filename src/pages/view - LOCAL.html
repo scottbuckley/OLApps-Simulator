@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Simulator</title>
+		<script src="common/jquery.min.js"></script>
+		<script src="common/bootstrap/js/bootstrap.min.js"></script>
+		<script src="{{ media('js/ace/ace.js') }}" type="text/javascript" charset="utf-8"></script>
+		<script src="{{ media('simulator.js') }}" type="text/javascript"></script>
+		{{ app_init_js }}
+		<link rel="stylesheet" type="text/css" href="/common/bootstrap/css/bootstrap.min.css" />
+		<link rel="stylesheet" type="text/css" href="{{ media('style.css') }}" />
+	</head>
+	<body>
+      <table><tr>
+         <td><div id="code_area_wrapper">
+              <div id="editor_wrapper">
+                  <div id="editor">    and %r1, %r2, %r3
+zz:	add %r0, 5, %r3
+	add %r2, 1, %r2
+	subcc %r2, %r3, %r4
+	ba zz
+	nop</div>
+              </div>
+          </div></td>
+          <td><div id="machine_area_wrapper">
+             <div id="machine_area">
+                <a class="btn btn-inverse" href="javascript:PressButtonParse();">Parse</a>
+                <a class="btn btn-inverse" href="javascript:PressButtonExecute();">Execute</a>
+                <a class="btn" href="javascript:LockEditor();">Lock Editor</a>
+                <a class="btn" href="javascript:UnlockEditor();">Unlock Editor</a>
+                <a class="btn" href="#" id="redirectButton" target="_top">FullScreen</a>
+                <script> $("#redirectButton").attr("href", document.URL); </script>
+                <div id="alert-area" style="padding-top:10px;"></div>
+                <div id="registerTable">
+                    <table border="1px solid" width="600px">
+						<tr><td colspan="8" style="padding-left: 40px; padding-right: 40px;">
+							<table border="1px solid" width="500px"><tr>
+								<td id="regN"></td>
+								<td id="regZ"></td>
+								<td id="regV"></td>
+								<td id="regC"></td>
+							</tr></table>
+						</td></tr>
+                        <tr>   <td id="reg00"></td><td id="reg01"></td><td id="reg02"></td><td id="reg03"></td><td id="reg04"></td><td id="reg05"></td><td id="reg06"></td><td id="reg07"></td>   </tr>
+                        <tr>   <td id="reg08"></td><td id="reg09"></td><td id="reg10"></td><td id="reg11"></td><td id="reg12"></td><td id="reg13"></td><td id="reg14"></td><td id="reg15"></td>   </tr>
+                        <tr>   <td id="reg16"></td><td id="reg17"></td><td id="reg18"></td><td id="reg19"></td><td id="reg20"></td><td id="reg21"></td><td id="reg22"></td><td id="reg23"></td>   </tr>
+                        <tr>   <td id="reg24"></td><td id="reg25"></td><td id="reg26"></td><td id="reg27"></td><td id="reg28"></td><td id="reg29"></td><td id="reg30"></td><td id="reg31"></td>   </tr>
+                    </table>
+                </div>
+             </div>
+          </div></td>
+		</tr></table>
+		<script>
+			// Enable codearea as an ace editor.
+			var editor = ace.edit("editor");
+			editor.setTheme("ace/theme/eclipse");
+			editor.getSession().setMode("ace/mode/sparc");
+
+			// Start the JSIsem machine
+			StartMachine(editor);
+		</script>
+	</body>
+</html>
